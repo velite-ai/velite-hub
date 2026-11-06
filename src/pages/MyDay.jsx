@@ -5,6 +5,8 @@ import { daysUntil, timeAgo, dueLabel } from "../lib/dates";
 import { isMine, byDue, TaskCard, TaskModal } from "./Tasks";
 import { materialsSummary } from "./Materials";
 import { goalProgress } from "./Compass";
+import { tmDue } from "./Trademarks";
+import { fmtDate } from "../lib/dates";
 import { Empty } from "../components/ui";
 
 function greeting() {
@@ -18,7 +20,7 @@ export function myAlerts(tasks, me) {
 }
 
 export default function MyDay({ go }) {
-  const { me, isOwner, tasks, materials, comments, goals, goalItems } = useData();
+  const { me, isOwner, tasks, materials, comments, goals, goalItems, trademarks } = useData();
   const [edit, setEdit] = useState(null);
 
   const open = tasks.rows.filter((t) => !t.deleted_at && t.status !== "Done");
@@ -116,6 +118,22 @@ export default function MyDay({ go }) {
               ))}
             </div>
           </div>
+
+          {(() => {
+            const tms = trademarks.rows.filter((t) => !t.deleted_at && tmDue(t) && tmDue(t).n <= 180).sort((a, b) => (a.deadline < b.deadline ? -1 : 1));
+            return (
+              <div className="section">
+                <div className="section-head"><div className="section-title">⚖️ Trademark deadlines</div>
+                  <button className="link-btn strong" onClick={() => go("ipr")}>Open →</button></div>
+                <div className="side-list">
+                  {tms.length === 0 && <div className="small-muted">No trademark deadlines in the next 6 months.</div>}
+                  {tms.slice(0, 6).map((t) => { const d = tmDue(t); return (
+                    <div key={t.id} className="side-item flex-between"><span><strong>{t.mark}</strong> <span className="small-muted">· {t.status}</span></span>
+                      <span className={`due ${d.cls}`}>{fmtDate(t.deadline)}{d.text ? ` · ${d.text}` : ""}</span></div>); })}
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="section">
             <div className="section-head"><div className="section-title">🛡️ Compliance</div></div>

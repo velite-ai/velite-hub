@@ -6,6 +6,7 @@ import MyDay, { myAlerts } from "./pages/MyDay";
 import Materials from "./pages/Materials";
 import Tasks from "./pages/Tasks";
 import Compass from "./pages/Compass";
+import Trademarks from "./pages/Trademarks";
 import Admin, { AccountModal } from "./pages/Admin";
 
 export default function App() {
@@ -58,6 +59,7 @@ const TABS = [
   { k: "myday", label: "🏠 My Day" },
   { k: "materials", label: "📦 Materials" },
   { k: "tasks", label: "✅ Tasks" },
+  { k: "ipr", label: "⚖️ Trademarks" },
   { k: "compass", label: "🧭 Business Compass", owner: true },
   { k: "admin", label: "⚙️ Admin", owner: true },
 ];
@@ -106,6 +108,7 @@ function Shell({ onSignOut, reloadMe }) {
         {tab === "myday" && <MyDay go={go} />}
         {tab === "materials" && <Materials />}
         {tab === "tasks" && <Tasks />}
+        {tab === "ipr" && <Trademarks />}
         {tab === "compass" && isOwner && <Compass />}
         {tab === "admin" && isOwner && <Admin />}
       </div>

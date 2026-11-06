@@ -13,6 +13,8 @@ in its own `hub_*` tables. The full SQL of every change is stored in Supabase's 
 | `hub_firebase_import_fn` | `hub_import_firebase(true)` — re-runnable copy from Firebase (skips rows already copied) |
 | `hub_tighten_function_grants` | Removes public access to internal functions |
 | `hub_bin_auto_cleanup` | Daily job (02:00 IST) that empties recycle-bin items older than 30 days |
+| `hub_ipr_one_time_upload` | One-time, code-protected upload used to receive state.json from ipr.velite.in (raw copy kept in `hub_ipr_raw`) |
+| `hub_trademarks` | Trademarks & IPR table (101 marks imported from ipr.velite.in), edit rights for owners and managers |
 
 ## Final data sync before switching off Firebase
 Run once in the SQL editor: `select public.hub_import_firebase(true);`

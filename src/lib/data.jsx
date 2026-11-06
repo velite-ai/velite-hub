@@ -50,8 +50,9 @@ export function DataProvider({ me, children }) {
   const comments = useTable("hub_comments", { ascending: true });
   const goals = useTable("hub_goals", { enabled: isOwner });
   const goalItems = useTable("hub_goal_items", { enabled: isOwner, ascending: true });
+  const trademarks = useTable("hub_trademarks", { order: "mark", ascending: true });
 
-  const value = { me, isOwner, profiles, materials, tasks, comments, goals, goalItems };
+  const value = { me, isOwner, profiles, materials, tasks, comments, goals, goalItems, trademarks };
   return <DataCtx.Provider value={value}>{children}</DataCtx.Provider>;
 }
 

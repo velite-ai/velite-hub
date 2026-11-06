@@ -113,15 +113,16 @@ function ResetPassword({ p, onClose }) {
 }
 
 function Bin() {
-  const { materials, tasks, goals, isOwner } = useData();
+  const { materials, tasks, goals, trademarks, isOwner } = useData();
   const [ask, dialog] = useConfirm();
   const items = [
     ...materials.rows.filter((r) => r.deleted_at).map((r) => ({ ...r, _type: "material", _table: "hub_materials", _label: r.name, _kind: r.list_type === "rm" ? "Raw material" : "Packing material" })),
     ...tasks.rows.filter((r) => r.deleted_at).map((r) => ({ ...r, _type: "task", _table: "hub_tasks", _label: r.title, _kind: "Task" })),
+    ...trademarks.rows.filter((r) => r.deleted_at).map((r) => ({ ...r, _type: "trademark", _table: "hub_trademarks", _label: r.mark, _kind: "Trademark" })),
     ...(isOwner ? goals.rows.filter((r) => r.deleted_at).map((r) => ({ ...r, _type: "goal", _table: "hub_goals", _label: r.title, _kind: "Goal" })) : []),
   ].sort((a, b) => (a.deleted_at < b.deleted_at ? 1 : -1));
 
-  const reloadAll = () => { materials.reload(); tasks.reload(); goals.reload(); };
+  const reloadAll = () => { materials.reload(); tasks.reload(); goals.reload(); trademarks.reload(); };
   const restore = async (it) => { const r = await run(supabase.from(it._table).update({ deleted_at: null }).eq("id", it.id), "Restored"); if (r.ok) reloadAll(); };
   const purge = async (it) => {
     if (!(await ask({ title: "Delete forever?", body: `"${it._label}" and its comments will be permanently removed. This cannot be undone.`, okText: "Delete forever", danger: true }))) return;
