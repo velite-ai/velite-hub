@@ -113,16 +113,20 @@ function ResetPassword({ p, onClose }) {
 }
 
 function Bin() {
-  const { materials, tasks, goals, trademarks, isOwner } = useData();
+  const { materials, tasks, goals, trademarks, iprNotices, iprThird, iprDocs, iprMatters, isOwner } = useData();
   const [ask, dialog] = useConfirm();
   const items = [
     ...materials.rows.filter((r) => r.deleted_at).map((r) => ({ ...r, _type: "material", _table: "hub_materials", _label: r.name, _kind: r.list_type === "rm" ? "Raw material" : "Packing material" })),
     ...tasks.rows.filter((r) => r.deleted_at).map((r) => ({ ...r, _type: "task", _table: "hub_tasks", _label: r.title, _kind: "Task" })),
     ...trademarks.rows.filter((r) => r.deleted_at).map((r) => ({ ...r, _type: "trademark", _table: "hub_trademarks", _label: r.mark, _kind: "Trademark" })),
+    ...iprNotices.rows.filter((r) => r.deleted_at).map((r) => ({ ...r, _type: "ipr_notice", _table: "hub_ipr_notifications", _label: (r.summary || "").slice(0, 60), _kind: "IPR notification" })),
+    ...iprThird.rows.filter((r) => r.deleted_at).map((r) => ({ ...r, _type: "ipr_third", _table: "hub_ipr_third_party", _label: `${r.brand} (${r.client})`, _kind: "Third-party brand" })),
+    ...iprDocs.rows.filter((r) => r.deleted_at).map((r) => ({ ...r, _type: "ipr_doc", _table: "hub_ipr_documents", _label: r.name, _kind: r.kind === "proof" ? "Usage proof" : "IPR document" })),
+    ...iprMatters.rows.filter((r) => r.deleted_at).map((r) => ({ ...r, _type: "ipr_matter", _table: "hub_ipr_matters", _label: r.title, _kind: "Legal matter" })),
     ...(isOwner ? goals.rows.filter((r) => r.deleted_at).map((r) => ({ ...r, _type: "goal", _table: "hub_goals", _label: r.title, _kind: "Goal" })) : []),
   ].sort((a, b) => (a.deleted_at < b.deleted_at ? 1 : -1));
 
-  const reloadAll = () => { materials.reload(); tasks.reload(); goals.reload(); trademarks.reload(); };
+  const reloadAll = () => { [materials, tasks, goals, trademarks, iprNotices, iprThird, iprDocs, iprMatters].forEach((t) => t.reload()); };
   const restore = async (it) => { const r = await run(supabase.from(it._table).update({ deleted_at: null }).eq("id", it.id), "Restored"); if (r.ok) reloadAll(); };
   const purge = async (it) => {
     if (!(await ask({ title: "Delete forever?", body: `"${it._label}" and its comments will be permanently removed. This cannot be undone.`, okText: "Delete forever", danger: true }))) return;
