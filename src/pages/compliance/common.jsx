@@ -17,8 +17,39 @@ export const FLAG_GROUPS = [
   ["Type of business", ["prop", "huf", "company", "drug_mfg", "cos_mfg", "drug_sale", "exporter", "mfg", "new_drug", "dpco_scheduled", "ucpmp"]],
   ["People", ["employees", "pf", "esi", "lwf", "posh10", "apprentice30", "contract50", "factory", "shops20", "shops_small"]],
   ["Tax", ["gst", "qrmp", "gst_2cr", "gst_5cr", "einv", "tds", "tax_audit", "msme", "dsc"]],
-  ["Plant, safety & environment", ["ppcb", "haz_waste", "bmw", "pibo", "lmpc", "weights", "fire", "boiler", "ceig", "peso", "alcohol", "ndps", "groundwater"]],
+  ["Plant, safety & environment", ["ppcb", "haz_waste", "bmw", "pibo", "lmpc", "weights", "fire", "boiler", "ceig", "peso", "alcohol", "ndps", "groundwater", "lifting", "pressure"]],
+  ["Admin, premises & sales", ["vehicles", "rented", "owned_premises", "ecommerce", "bank_cc"]],
 ];
+
+// Colour + icon for every department (keeps screens lively and scannable)
+export const DEPTS = {
+  "Regulatory – Drugs": { icon: "💊", c: "#2563eb" },
+  "Regulatory – Cosmetics": { icon: "🧴", c: "#db2777" },
+  "Pricing (NPPA)": { icon: "🏷️", c: "#7c3aed" },
+  "Quality (QA/QC)": { icon: "🔬", c: "#0891b2" },
+  "Factory & Safety": { icon: "🏭", c: "#ea580c" },
+  "Environment (EHS)": { icon: "🌿", c: "#16a34a" },
+  "HR & Labour": { icon: "👥", c: "#ca8a04" },
+  "Finance & Tax": { icon: "💰", c: "#0f766e" },
+  "Company Law (ROC)": { icon: "🏛️", c: "#4f46e5" },
+  "Export": { icon: "🚢", c: "#0284c7" },
+  "Sales & Marketing": { icon: "📣", c: "#e11d48" },
+  "E-commerce": { icon: "🛒", c: "#f59e0b" },
+  "Admin & Stores": { icon: "📦", c: "#64748b" },
+  "Legal, IP & Data": { icon: "⚖️", c: "#9333ea" },
+};
+export const deptStyle = (d) => DEPTS[d] || { icon: "📌", c: "#64748b" };
+export const FIRM_COLORS = { VP: "#2563eb", VH: "#db2777", VI: "#ea580c", VS: "#16a34a" };
+export const firmColor = (id) => FIRM_COLORS[id] || "#475467";
+export const GO_LIVE = "2026-11-08";
+
+export function FirmBadge({ id }) {
+  return <span className="cmp-fb" style={{ background: firmColor(id) }}>{id}</span>;
+}
+export function DeptChip({ dept, short }) {
+  const s = deptStyle(dept);
+  return <span className="cmp-dc" style={{ color: s.c, background: s.c + "14", borderColor: s.c + "40" }}>{s.icon}{short ? "" : ` ${dept}`}</span>;
+}
 
 export const isOpen = (i) => !i.deleted_at && (i.status === "pending" || i.status === "in_progress");
 export const isDone = (i) => i.status === "filed" || i.status === "verified" || i.status === "na";

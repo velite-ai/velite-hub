@@ -22,7 +22,8 @@ export function myAlerts(tasks, me) {
 // Owners see every open compliance item; others see only items where they are maker or checker
 const cmpOpen = (i) => !i.deleted_at && (i.status === "pending" || i.status === "in_progress");
 export function cmpAlerts(cmpItems, me) {
-  return cmpItems.rows.filter((i) => cmpOpen(i) && (i.owner_id === me.id || i.checker_id === me.id) && daysUntil(i.due_date) <= 0).length;
+  return cmpItems.rows.filter((i) => cmpOpen(i) && i.due_date >= "2026-11-08" && daysUntil(i.due_date) <= 0 &&
+    (i.owner_id === me.id || i.checker_id === me.id || (me.role === "owner" && !i.owner_id))).length;
 }
 
 export default function MyDay({ go }) {
@@ -142,7 +143,7 @@ export default function MyDay({ go }) {
           })()}
 
           {(() => {
-            const list = cmpItems.rows.filter((i) => cmpOpen(i) && daysUntil(i.due_date) <= 15 &&
+            const list = cmpItems.rows.filter((i) => cmpOpen(i) && daysUntil(i.due_date) <= 15 && i.due_date >= "2026-11-08" &&
               (isOwner || i.owner_id === me.id || i.checker_id === me.id));
             const toCheck = cmpItems.rows.filter((i) => !i.deleted_at && i.status === "filed" && (i.checker_id === me.id || (isOwner && !i.checker_id)));
             const late = list.filter((i) => daysUntil(i.due_date) < 0).length;

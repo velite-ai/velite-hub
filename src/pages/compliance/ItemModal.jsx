@@ -5,7 +5,7 @@ import { Modal, Field } from "../../components/ui";
 import Comments from "../../components/Comments";
 import { fmtDate, fmtDateTime } from "../../lib/dates";
 import { Pill } from "../ipr/shared";
-import { STATUS, ruleText, uploadProof, openProof, dueBadge } from "./common";
+import { STATUS, ruleText, uploadProof, openProof, dueBadge, FirmBadge, DeptChip } from "./common";
 
 export function LibInfo({ lib }) {
   if (!lib) return null;
@@ -26,16 +26,19 @@ export function LibInfo({ lib }) {
   );
 }
 
-export default function ItemModal({ item, onClose }) {
-  const { cmpLib, cmpFirms, profiles, isOwner, me, cmpItems } = useData();
+export default function ItemModal({ item, onClose, quick }) {
+  const { cmpLib, cmpFirms, profiles, isOwner, me, cmpItems, cmpLic } = useData();
   const lib = cmpLib.rows.find((l) => l.code === item.code);
   const firm = cmpFirms.rows.find((f) => f.id === item.firm_id);
   const people = profiles.rows.filter((p) => p.status === "approved");
   const [f, setF] = useState({
-    status: item.status, filed_on: item.filed_on || "", ref_no: item.ref_no || "", proof_link: item.proof_link || "",
+    status: quick && (item.status === "pending" || item.status === "in_progress") ? "filed" : item.status, filed_on: item.filed_on || "", ref_no: item.ref_no || "", proof_link: item.proof_link || "",
     proof_path: item.proof_path || null, proof_name: item.proof_name || "", notes: item.notes || "", na_reason: item.na_reason || "",
     owner_id: item.owner_id || "", checker_id: item.checker_id || "", due_date: item.due_date,
   });
+  const lic = item.licence_id ? cmpLic.rows.find((l) => l.id === item.licence_id) : null;
+  const plus5 = (() => { const [y, m, dd] = item.due_date.split("-").map(Number); return `${y + 5}-${String(m).padStart(2, "0")}-${String(dd).padStart(2, "0")}`; })();
+  const [nextDue, setNextDue] = useState(lic && lic.next_due === item.due_date ? plus5 : "");
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setF({ ...f, [k]: e.target ? e.target.value : e });
   const canVerify = isOwner || item.checker_id === me.id;
@@ -63,6 +66,10 @@ export default function ItemModal({ item, onClose }) {
     if (isOwner) patch.due_date = f.due_date;
     const r = await run(supabase.from("hub_cmp_items").update(patch).eq("id", item.id), "Saved");
     setBusy(false);
+    if (r.ok && lic && nextDue && (f.status === "filed" || f.status === "verified") && lic.next_due === item.due_date) {
+      const r2 = await run(supabase.rpc("hub_cmp_renew_licence", { p_item: item.id, p_next: nextDue }), "Licence moved to next cycle — reminder created");
+      if (r2.ok) cmpLic.reload();
+    }
     if (r.ok) { cmpItems.reload(); onClose(); }
   };
 
@@ -75,17 +82,17 @@ export default function ItemModal({ item, onClose }) {
   const statuses = ["pending", "in_progress", "filed", "verified", ...(isOwner ? ["na"] : [])];
   const db = dueBadge(item);
   return (
-    <Modal wide title={`${lib?.title || item.code}`} onClose={onClose}
+    <Modal wide title={`${lib ? (lib.dept && "") : ""}${lib?.title || item.code}`} onClose={onClose}
       actions={<>
         {item.manual && isOwner && <button className="btn-danger" onClick={remove}>Delete</button>}
         <button className="btn-ghost" onClick={onClose}>Close</button>
         <button className="btn-primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save"}</button>
       </>}>
       <div className="cmp-modal-top">
-        <Pill tone="blue">{firm?.name || item.firm_id}</Pill>
+        <FirmBadge id={item.firm_id} /> <b>{firm?.name}</b>
         <Pill>{item.period_label}</Pill>
         <span className={`due ${db.cls}`}>{db.text}</span>
-        <Pill>{lib?.dept}</Pill>
+        <DeptChip dept={lib?.dept} />
       </div>
       <LibInfo lib={lib} />
 
@@ -119,8 +126,12 @@ export default function ItemModal({ item, onClose }) {
         </Field>
         {isOwner && <Field label="Due date" hint="Change only if the government extends the date."><input className="inp" type="date" value={f.due_date} onChange={set("due_date")} /></Field>}
       </div>
-      {item.licence_id && (f.status === "filed" || f.status === "verified") && (
-        <div className="cmp-alert">After renewal, open <b>Licences & certificates</b> and set the licence's next due date to the following cycle, so the next reminder is created.</div>
+      {lic && (f.status === "filed" || f.status === "verified") && lic.next_due === item.due_date && (
+        <div className="cmp-alert">
+          <b>Next cycle for “{lic.title}”</b> — when is it due next? (5 years for retention fees; 1/3/5 years for fire etc.)
+          <input className="inp" type="date" style={{ marginTop: 6, maxWidth: 220 }} value={nextDue} onChange={(e) => setNextDue(e.target.value)} />
+          <div className="form-hint">Saving will move the licence to this date and create the next reminder automatically. Leave empty to skip.</div>
+        </div>
       )}
       <Field label="Notes"><textarea className="inp" rows={2} value={f.notes} onChange={set("notes")} /></Field>
 

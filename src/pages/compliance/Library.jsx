@@ -3,8 +3,7 @@ import { supabase } from "../../supabase";
 import { useData, run, toast } from "../../lib/data";
 import { Modal, Field, SearchBox } from "../../components/ui";
 import { todayISO, addDaysISO } from "../../lib/dates";
-import { Pill } from "../ipr/shared";
-import { applicability, ruleText, regenerate } from "./common";
+import { applicability, ruleText, regenerate, deptStyle, firmColor } from "./common";
 import { LibInfo } from "./ItemModal";
 
 export default function Library() {
@@ -22,21 +21,21 @@ export default function Library() {
   return (
     <div className="ipanel">
       <div className="ipanel-head"><div><h3>Compliance library — {d.cmpLib.rows.length} obligations</h3>
-        <p>Researched November 2026 with sources. Green = applies to that firm. Click an item for details, who is responsible, or to start an event-based item.</p></div></div>
+        <p>Researched November 2026 with sources. A coloured firm tag = applies to that firm. Click an item for details, who is responsible, or to start an event-based item.</p></div></div>
       <div className="filter-bar" style={{ marginBottom: 10 }}>
         <select className="inp inp-filter" value={dept} onChange={(e) => setDept(e.target.value)}><option value="all">All departments</option>{depts.map((x) => <option key={x}>{x}</option>)}</select>
         <SearchBox value={q} onChange={setQ} placeholder="Search law, form, topic…" />
       </div>
       {depts.filter((x) => list.some((l) => l.dept === x)).map((dep) => (
         <div key={dep} className="cmp-month">
-          <div className="day-block-title">{dep}</div>
+          <div className="cmp-dept-h" style={{ background: deptStyle(dep).c }}>{deptStyle(dep).icon} {dep} <span>{list.filter((l) => l.dept === dep).length}</span></div>
           {list.filter((l) => l.dept === dep).map((l) => (
             <div key={l.code} className="cmp-lib">
               <div className="cmp-lib-head" onClick={() => setOpenCode(openCode === l.code ? null : l.code)}>
                 <span className="small-muted cmp-code">{l.code}</span>
                 <span className="cmp-title"><b>{l.title}</b><div className="small-muted">{ruleText(l.rule)}</div></span>
                 <span className="cmp-chips">{d.cmpFirms.rows.map((f) => { const a = applicability(f, l, d.cmpAssign.rows); return (
-                  <Pill key={f.id} tone={a.applies ? "green" : ""} title={a.mode !== "auto" ? "Set by owner" : "Automatic from firm settings"}>{f.id}{a.mode !== "auto" ? "*" : ""}</Pill>); })}</span>
+                  <span key={f.id} className={`cmp-fchip ${a.applies ? "on" : ""}`} style={a.applies ? { background: firmColor(f.id) } : {}} title={(a.applies ? "Applies" : "Does not apply") + (a.mode !== "auto" ? " (set by owner)" : "")}>{f.id}{a.mode !== "auto" ? "*" : ""}</span>); })}</span>
               </div>
               {openCode === l.code && (
                 <div className="cmp-lib-body">

@@ -4,7 +4,7 @@ import { useData, run, toast } from "../../lib/data";
 import { Modal, Field, Empty } from "../../components/ui";
 import { fmtDate, dueLabel } from "../../lib/dates";
 import { Pill } from "../ipr/shared";
-import { applicability, uploadProof, openProof } from "./common";
+import { applicability, uploadProof, openProof, FirmBadge } from "./common";
 
 export default function Licences() {
   const d = useData();
@@ -28,7 +28,7 @@ export default function Licences() {
           <thead><tr><th>Firm</th><th>Licence / certificate</th><th>Number</th><th>Valid till</th><th>Next due</th><th>Proof</th></tr></thead>
           <tbody>{rows.map((l) => { const b = l.next_due ? dueLabel(l.next_due) : null; return (
             <tr key={l.id} className="click-row" onClick={() => setEdit(l)}>
-              <td><b>{l.firm_id}</b></td>
+              <td><FirmBadge id={l.firm_id} /></td>
               <td>{l.title}<div className="small-muted">{libT(l.code)}</div></td>
               <td>{l.number || "—"}<div className="small-muted">{l.authority}</div></td>
               <td>{l.valid_till ? fmtDate(l.valid_till) : "Perpetual"}</td>

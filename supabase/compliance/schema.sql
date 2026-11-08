@@ -328,3 +328,6 @@ alter function public.hub_cmp_dates(jsonb,date,date) set search_path = public;
 revoke execute on function public.hub_cmp_stamp() from anon, authenticated, public;
 revoke execute on function public.hub_cmp_log() from anon, authenticated, public;
 revoke execute on function public.hub_cmp_licence_regen() from anon, authenticated, public;
+
+-- 2026-11-08 review: hub_cmp_generate(p_days, p_back) with backfill; hub_cmp_renew_licence; hub_cmp_mark_predone
+-- (see migration hub_compliance_generate_backfill)
