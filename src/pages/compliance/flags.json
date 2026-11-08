@@ -41,5 +41,12 @@
  "new_drug": "Holds new-drug approval (PSUR)",
  "fire": "Premises needing fire safety certificate",
  "msme": "Buys from MSEs (45-day payment rule)",
- "dsc": "Uses digital signature certificates"
+ "dsc": "Uses digital signature certificates",
+ "vehicles": "Owns vehicles",
+ "rented": "Works from rented premises",
+ "owned_premises": "Owns its premises (property tax)",
+ "lifting": "Lifts / hoists / lifting tackle",
+ "pressure": "Pressure vessels / autoclave / air receiver",
+ "ecommerce": "Sells online (Amazon etc.)",
+ "bank_cc": "Has a bank cash-credit / loan limit"
 }
