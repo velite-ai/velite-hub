@@ -331,3 +331,4 @@ revoke execute on function public.hub_cmp_licence_regen() from anon, authenticat
 
 -- 2026-11-08 review: hub_cmp_generate(p_days, p_back) with backfill; hub_cmp_renew_licence; hub_cmp_mark_predone
 -- (see migration hub_compliance_generate_backfill)
+-- 2026-11-08: email reminders — see migration hub_compliance_email_reminders (hub_cmp_send_reminders, daily 08:00 IST via pg_cron, Resend key in Vault as 'resend_api_key')

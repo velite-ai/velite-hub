@@ -14,7 +14,7 @@ import Library from "./compliance/Library";
 import Firms from "./compliance/Firms";
 
 const VIEWS = [
-  ["dash", "📊 Dashboard"], ["due", "📋 Due list"], ["cal", "🗓️ Calendar"], ["lic", "📜 Licences"], ["lib", "📚 Library"], ["firms", "🏢 Firm settings", true],
+  ["dash", "📊 Dashboard"], ["due", "📋 Due list"], ["cal", "🗓️ Calendar"], ["lic", "📜 Licences"], ["lib", "📚 Library"], ["firms", "⚙️ Settings & emails", true],
 ];
 const BLANK = { firm: "all", dept: "all", show: "open", mine: false, q: "" };
 
