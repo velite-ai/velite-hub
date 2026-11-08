@@ -407,3 +407,36 @@ button:disabled{opacity:0.6;cursor:default;}
 .action-btn.danger{color:#b91c1c;}
 .action-btn.danger:hover{border-color:#dc2626;}
 .itbl .action-stack{flex-direction:column;gap:4px;}
+
+/* ── Compliance Tracker ── */
+.cmp-alert{background:#fff7e6;border:1px solid #fcd9a0;color:#7a4b00;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;line-height:1.5;}
+.cmp-click{cursor:pointer;transition:box-shadow .15s;} .cmp-click:hover{box-shadow:0 2px 12px rgba(26,111,168,.15);}
+.cmp-row{display:flex;align-items:center;gap:10px;padding:9px 10px;border-bottom:1px solid #f1f3f6;cursor:pointer;font-size:13px;border-left:3px solid transparent;}
+.cmp-row:hover{background:#f7f9fc;} .cmp-row.red{border-left-color:#e24b4a;} .cmp-row.amber{border-left-color:#f0a020;}
+.cmp-due{flex:0 0 150px;} .cmp-firm{flex:0 0 34px;font-weight:700;color:#1a6fa8;} .cmp-title{flex:1;min-width:0;}
+.cmp-who{flex:0 0 110px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cmp-month{margin-bottom:14px;}
+.cmp-grid td,.cmp-grid th{text-align:center;} .cmp-grid td:first-child,.cmp-grid th:first-child{text-align:left;}
+.cmp-cell{border:none;border-radius:8px;padding:5px 12px;font-weight:700;cursor:pointer;min-width:58px;font-size:12px;}
+.cmp-cell.red{background:#fee2e2;color:#b91c1c;} .cmp-cell.amber{background:#fef3c7;color:#92400e;} .cmp-cell.green{background:#dcfce7;color:#166534;}
+.cmp-info{background:#f7f9fc;border-radius:10px;padding:12px 14px;margin:10px 0 14px;font-size:13px;line-height:1.55;}
+.cmp-info p{margin-bottom:8px;}
+.cmp-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 18px;}
+.cmp-facts b{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#888;}
+.cmp-modal-top{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.cmp-lib{border-bottom:1px solid #f1f3f6;}
+.cmp-lib-head{display:flex;align-items:center;gap:10px;padding:9px 6px;cursor:pointer;font-size:13px;} .cmp-lib-head:hover{background:#f7f9fc;}
+.cmp-code{flex:0 0 42px;} .cmp-chips{flex:0 0 auto;}
+.cmp-lib-body{padding:0 6px 12px 58px;}
+.cmp-flags{display:flex;flex-wrap:wrap;gap:6px;}
+.cmp-flag{display:inline-flex;align-items:center;gap:6px;border:1.5px solid #e0e4ea;border-radius:16px;padding:5px 12px;font-size:12px;cursor:pointer;background:#fff;}
+.cmp-flag.on{border-color:#1a6fa8;background:#eaf3fb;}
+@media (max-width:760px){
+  .cmp-row{flex-wrap:wrap;} .cmp-due{flex-basis:auto;} .cmp-who{flex-basis:auto;text-align:left;} .cmp-dept{display:none;}
+  .cmp-facts{grid-template-columns:1fr;} .cmp-lib-head{flex-wrap:wrap;} .cmp-lib-body{padding-left:6px;}
+}
+
+.cmp-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px;}
+.cmp-form .inp,.cmp .inp,.modal textarea.inp{width:100%;box-sizing:border-box;}
+@media (max-width:760px){.cmp-form{grid-template-columns:1fr;}}
+@media (max-width:760px){ .cmp-row .cmp-title{flex:1 1 100%;order:5;} .cmp-row .cmp-who{display:none;} }

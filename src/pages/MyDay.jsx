@@ -19,8 +19,14 @@ export function myAlerts(tasks, me) {
   return mine.filter((t) => t.due_date && daysUntil(t.due_date) <= 0).length;
 }
 
+// Owners see every open compliance item; others see only items where they are maker or checker
+const cmpOpen = (i) => !i.deleted_at && (i.status === "pending" || i.status === "in_progress");
+export function cmpAlerts(cmpItems, me) {
+  return cmpItems.rows.filter((i) => cmpOpen(i) && (i.owner_id === me.id || i.checker_id === me.id) && daysUntil(i.due_date) <= 0).length;
+}
+
 export default function MyDay({ go }) {
-  const { me, isOwner, tasks, materials, comments, goals, goalItems, trademarks } = useData();
+  const { me, isOwner, tasks, materials, comments, goals, goalItems, trademarks, cmpItems, cmpLib } = useData();
   const [edit, setEdit] = useState(null);
 
   const open = tasks.rows.filter((t) => !t.deleted_at && t.status !== "Done");
@@ -135,10 +141,26 @@ export default function MyDay({ go }) {
             );
           })()}
 
-          <div className="section">
-            <div className="section-head"><div className="section-title">🛡️ Compliance</div></div>
-            <div className="side-list"><div className="small-muted">The Compliance Tracker arrives in Phase 2 — due filings and licence renewals for all four firms will show here.</div></div>
-          </div>
+          {(() => {
+            const list = cmpItems.rows.filter((i) => cmpOpen(i) && daysUntil(i.due_date) <= 15 &&
+              (isOwner || i.owner_id === me.id || i.checker_id === me.id));
+            const toCheck = cmpItems.rows.filter((i) => !i.deleted_at && i.status === "filed" && (i.checker_id === me.id || (isOwner && !i.checker_id)));
+            const late = list.filter((i) => daysUntil(i.due_date) < 0).length;
+            return (
+              <div className="section">
+                <div className="section-head"><div className="section-title">🛡️ Compliance — next 15 days</div>
+                  <button className="link-btn strong" onClick={() => go("compliance")}>Open →</button></div>
+                <div className="side-list">
+                  <div className="small-muted" style={{ marginBottom: 6 }}>{list.length} due{late ? <span className="due-over"> · {late} overdue</span> : ""}{toCheck.length ? ` · ${toCheck.length} filed, waiting for your check` : ""}</div>
+                  {list.length === 0 && <div className="small-muted">Nothing due in the next 15 days.</div>}
+                  {list.slice(0, 8).map((i) => { const d = dueLabel(i.due_date); const l = cmpLib.rows.find((x) => x.code === i.code); return (
+                    <div key={i.id} className="side-item flex-between"><span><strong>{i.firm_id}</strong> · {l?.title || i.code} <span className="small-muted">· {i.period_label}</span></span>
+                      <span className={`due ${d.cls}`}>{d.text}</span></div>); })}
+                  {list.length > 8 && <div className="small-muted">+{list.length - 8} more</div>}
+                </div>
+              </div>
+            );
+          })()}
 
           {isOwner && (
             <div className="section">

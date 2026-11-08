@@ -319,3 +319,12 @@ select cron.schedule('hub-cmp-generate', '0 21 * * *', $$select public.hub_cmp_g
 alter table public.hub_comments drop constraint if exists hub_comments_entity_type_check;
 alter table public.hub_comments add constraint hub_comments_entity_type_check
   check (entity_type in ('material','task','goal','trademark','compliance'));
+
+-- hardening (applied 2026-11-08)
+alter function public.hub_cmp_applies(jsonb,text) set search_path = public;
+alter function public.hub_cmp_mkdate(int,int,int) set search_path = public;
+alter function public.hub_cmp_fy(int) set search_path = public;
+alter function public.hub_cmp_dates(jsonb,date,date) set search_path = public;
+revoke execute on function public.hub_cmp_stamp() from anon, authenticated, public;
+revoke execute on function public.hub_cmp_log() from anon, authenticated, public;
+revoke execute on function public.hub_cmp_licence_regen() from anon, authenticated, public;

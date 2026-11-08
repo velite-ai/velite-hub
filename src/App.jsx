@@ -2,11 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "./supabase";
 import { DataProvider, Toasts, useData, toast } from "./lib/data";
 import Login, { PendingScreen } from "./pages/Login";
-import MyDay, { myAlerts } from "./pages/MyDay";
+import MyDay, { myAlerts, cmpAlerts } from "./pages/MyDay";
 import Materials from "./pages/Materials";
 import Tasks from "./pages/Tasks";
 import Compass from "./pages/Compass";
 import Trademarks from "./pages/Trademarks";
+import Compliance from "./pages/Compliance";
 import Admin, { AccountModal } from "./pages/Admin";
 
 export default function App() {
@@ -59,6 +60,7 @@ const TABS = [
   { k: "myday", label: "🏠 My Day" },
   { k: "materials", label: "📦 Materials" },
   { k: "tasks", label: "✅ Tasks" },
+  { k: "compliance", label: "🛡️ Compliance" },
   { k: "ipr", label: "⚖️ Trademarks" },
   { k: "compass", label: "🧭 Business Compass", owner: true },
   { k: "admin", label: "⚙️ Admin", owner: true },
@@ -73,11 +75,11 @@ function useHashTab(allowed) {
 }
 
 function Shell({ onSignOut, reloadMe }) {
-  const { me, isOwner, tasks, profiles } = useData();
+  const { me, isOwner, tasks, profiles, cmpItems } = useData();
   const tabs = TABS.filter((t) => !t.owner || isOwner);
   const [tab, go] = useHashTab(tabs.map((t) => t.k));
   const [acct, setAcct] = useState(false);
-  const alerts = myAlerts(tasks, me);
+  const alerts = myAlerts(tasks, me) + cmpAlerts(cmpItems, me);
   const pendingUsers = isOwner ? profiles.rows.filter((p) => p.status === "pending").length : 0;
 
   return (
@@ -89,7 +91,7 @@ function Shell({ onSignOut, reloadMe }) {
             <span className="brand-loc">Ludhiana</span>
           </div>
           <div className="user-info">
-            <button className="bell" title="My overdue & due-today tasks" onClick={() => go("myday")}>
+            <button className="bell" title="My overdue & due-today tasks and compliances" onClick={() => go("myday")}>
               🔔{alerts > 0 && <span className="bell-n">{alerts}</span>}
             </button>
             <button className="user-badge" onClick={() => setAcct(true)} title="My account">👤 {me.full_name}</button>
@@ -108,6 +110,7 @@ function Shell({ onSignOut, reloadMe }) {
         {tab === "myday" && <MyDay go={go} />}
         {tab === "materials" && <Materials />}
         {tab === "tasks" && <Tasks />}
+        {tab === "compliance" && <Compliance />}
         {tab === "ipr" && <Trademarks />}
         {tab === "compass" && isOwner && <Compass />}
         {tab === "admin" && isOwner && <Admin />}
