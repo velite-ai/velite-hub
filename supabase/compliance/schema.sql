@@ -332,3 +332,7 @@ revoke execute on function public.hub_cmp_licence_regen() from anon, authenticat
 -- 2026-11-08 review: hub_cmp_generate(p_days, p_back) with backfill; hub_cmp_renew_licence; hub_cmp_mark_predone
 -- (see migration hub_compliance_generate_backfill)
 -- 2026-11-08: email reminders — see migration hub_compliance_email_reminders (hub_cmp_send_reminders, daily 08:00 IST via pg_cron, Resend key in Vault as 'resend_api_key')
+
+-- Department checklists (Nov 2026): see checklists.sql (tables hub_chk_points / hub_chk_answers / hub_chk_heads / hub_chk_log,
+-- functions hub_chk_answer / hub_chk_confirm / hub_chk_recheck / hub_chk_send_scorecard, cron 'hub-chk-scorecard').
+-- Points are loaded from checks.json (built from checks.mjs) by upsert on code.

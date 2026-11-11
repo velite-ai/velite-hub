@@ -12,9 +12,10 @@ import ItemModal from "./compliance/ItemModal";
 import Licences from "./compliance/Licences";
 import Library from "./compliance/Library";
 import Firms from "./compliance/Firms";
+import Checklists from "./compliance/Checklists";
 
 const VIEWS = [
-  ["dash", "📊 Dashboard"], ["due", "📋 Due list"], ["cal", "🗓️ Calendar"], ["lic", "📜 Licences"], ["lib", "📚 Library"], ["firms", "⚙️ Settings & emails", true],
+  ["dash", "📊 Dashboard"], ["chk", "✅ Checklists"], ["due", "📋 Due list"], ["cal", "🗓️ Calendar"], ["lic", "📜 Licences"], ["lib", "📚 Library"], ["firms", "⚙️ Settings & emails", true],
 ];
 const BLANK = { firm: "all", dept: "all", show: "open", mine: false, q: "" };
 
@@ -46,6 +47,7 @@ export default function Compliance() {
       </div>
       {loading ? <div className="loading">Loading…</div> : <>
         {view === "dash" && <Dashboard goDue={goDue} onOpen={setOpen} goView={setView} />}
+        {view === "chk" && <Checklists onOpenItem={setOpen} />}
         {view === "due" && <DueList filter={filter} setFilter={setFilter} onOpen={setOpen} />}
         {view === "cal" && <Calendar onOpen={setOpen} />}
         {view === "lic" && <Licences />}
