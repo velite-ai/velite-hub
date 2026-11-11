@@ -17,7 +17,7 @@ export default function Licences() {
   return (
     <div className="ipanel">
       <div className="ipanel-head">
-        <div><h3>Licences & certificates</h3><p>Enter every licence once with its <b>next due date</b> (renewal or retention-fee date). The tracker then reminds you before it.</p></div>
+        <div><h3>Licences & certificates</h3><p>The <b>one place</b> for every licence and all its papers. Enter it once with its <b>next due date</b> (renewal or retention-fee date); the tracker reminds you before it, and the matching checklist point shows the same papers.</p></div>
         <button className="btn-primary" onClick={() => setEdit({})}>+ Add licence</button>
       </div>
       <div className="filter-bar" style={{ marginBottom: 10 }}>

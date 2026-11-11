@@ -557,3 +557,6 @@ button:disabled{opacity:0.6;cursor:default;}
 .doc-del{color:#b91c1c !important;text-decoration:none !important;}
 .doc-add{font-size:13px;} .doc-form{border-top:1px solid #e4e9f1;padding-top:10px;margin-top:6px;}
 .doc-count{background:#eef2ff;color:#3730a3;border-radius:10px;padding:2px 8px;font-size:12px;font-weight:600;}
+
+.chk-lic{font-size:12.5px;color:#1e3a8a;background:#eef2ff;border-radius:8px;padding:5px 9px;margin-top:7px;display:inline-flex;gap:12px;flex-wrap:wrap;}
+.chk-lic.none{color:#92400e;background:#fef3c7;}

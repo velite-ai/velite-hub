@@ -194,6 +194,7 @@ function PointList({ firm, points, amap, dept, tag, onBack, onOpenItem }) {
                 <div className="chk-q">{p.risk === "H" && <span className="chk-risk" title="High risk">HIGH</span>}{p.q}</div>
                 <div className="chk-why">💡 {p.why}</div>
                 <div className="chk-law">{p.law}{p.evidence ? ` · Proof to keep: ${p.evidence}` : ""}</div>
+                {p.lic && <LicLine firm={firm} code={p.lic} onOpen={() => setAns({ point: p, mode: "yes" })} />}
                 {a && (
                   <div className="chk-ans">
                     {old && <span className="chk-tag redo">🔄 Re-check needed{a.stale_reason ? `: ${a.stale_reason}` : ""} — last answer was {a.answer === "yes" ? "Yes" : a.answer === "na" ? "Not applicable" : "No"}</span>}
@@ -201,9 +202,9 @@ function PointList({ firm, points, amap, dept, tag, onBack, onOpenItem }) {
                     {e === "na" && <span className="chk-tag na">Not applicable</span>}
                     {e === "no" && <span className="chk-tag no">❌ Gap — fix by {fmtDate(a.action_due)}{a.action_owner ? ` · ${personName(d.profiles, a.action_owner)}` : " · no one assigned"}</span>}
                     {a.ref_no && <span>Ref: {a.ref_no}</span>}
-                    {a.proof_path && <button className="link-btn" onClick={() => openProof(a.proof_path)}>📎 {a.proof_name || "file"}</button>}
-                    {a.proof_link && <a href={a.proof_link} target="_blank" rel="noreferrer">Open proof ↗</a>}
-                    {(() => { const n = docsOf(d.cmpDocs.rows, "check", `${firm.id}|${p.code}`).length; return n ? <button className="link-btn" onClick={() => setAns({ point: p, mode: "yes" })}>📂 {n} more paper{n === 1 ? "" : "s"}</button> : null; })()}
+                    {!p.lic && a.proof_path && <button className="link-btn" onClick={() => openProof(a.proof_path)}>📎 {a.proof_name || "file"}</button>}
+                    {!p.lic && a.proof_link && <a href={a.proof_link} target="_blank" rel="noreferrer">Open proof ↗</a>}
+                    {!p.lic && (() => { const n = docsOf(d.cmpDocs.rows, "check", `${firm.id}|${p.code}`).length; return n ? <button className="link-btn" onClick={() => setAns({ point: p, mode: "yes" })}>📂 {n} more paper{n === 1 ? "" : "s"}</button> : null; })()}
                     {a.note && <span className="chk-note">“{a.note}”</span>}
                     <span className="small-muted">{a.answered_by_name}, {fmtDate((a.answered_at || "").slice(0, 10))}</span>
                     {e === "no" && item && onOpenItem && <button className="link-btn chk-noprint" onClick={() => onOpenItem({ id: item.id })}>Open the action →</button>}
@@ -241,7 +242,14 @@ function AnswerModal({ firm, point, mode, prev, people, onClose }) {
     setBusy(true); const r = await uploadProof(file, `${firm.id}/checklist/${point.code}`); setBusy(false);
     if (r) setF({ ...f, path: r.path, name: r.name });
   };
+  const licRows = point.lic ? d.cmpLic.rows.filter((l) => !l.deleted_at && l.firm_id === firm.id && l.code === point.lic) : [];
   const save = async () => {
+    if (mode === "yes" && point.lic) {
+      if (!licRows.length) { toast("First add this licence to the Licence register (box above).", "err"); return; }
+      const papers = licRows.reduce((n, l) => n + docsOf(d.cmpDocs.rows, "licence", l.id).length, 0);
+      if (!papers && !licRows.some((l) => l.number)) { toast("Add at least one paper to the licence, or its number.", "err"); return; }
+      f.ref = `Licence register · ${licRows.map((l) => l.number || l.title).join(", ")}`; f.link = ""; f.path = null; f.name = "";
+    }
     const extra = docsOf(d.cmpDocs.rows, "check", `${firm.id}|${point.code}`);
     if (mode === "yes" && !f.ref.trim() && !f.link.trim() && !f.path && extra.length) { f.ref = `${extra.length} paper${extra.length === 1 ? "" : "s"} on file`; }
     if (mode === "yes" && !f.ref.trim() && !f.link.trim() && !f.path) { toast("Add proof for Yes: attach a file, paste a link, or write a reference number.", "err"); return; }
@@ -259,7 +267,8 @@ function AnswerModal({ firm, point, mode, prev, people, onClose }) {
   return (
     <Modal title={label} onClose={onClose} actions={<><button className="btn-ghost" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save"}</button></>}>
       <div className="chk-modal-q"><FirmBadge id={firm.id} /> {point.q}</div>
-      {mode === "yes" && <>
+      {mode === "yes" && point.lic && <LicPanel firm={firm} code={point.lic} />}
+      {mode === "yes" && !point.lic && <>
         <div className="form-hint" style={{ marginBottom: 8 }}>Give any one proof below. Suggested: <b>{point.evidence}</b>. Have older papers too (e.g. past retention certificates)? Add them all under “More papers”.</div>
         <Field label="Attach a file (max 15 MB)"><input type="file" onChange={upload} disabled={busy} />{f.path && <div className="form-hint">📎 {f.name}</div>}</Field>
         <Field label="Or paste a link (Google Drive etc.)"><input className="inp" placeholder="https://…" value={f.link} onChange={set("link")} /></Field>
@@ -275,5 +284,54 @@ function AnswerModal({ firm, point, mode, prev, people, onClose }) {
       </>}
       {mode === "na" && <Field label="Why does it not apply? (required)"><input className="inp" value={f.note} onChange={set("note")} placeholder="e.g. we do not make this type of product" /></Field>}
     </Modal>
+  );
+}
+
+
+// Points that are a licence: the Licence register is the one place for its papers.
+function LicLine({ firm, code, onOpen }) {
+  const d = useData();
+  const rows = d.cmpLic.rows.filter((l) => !l.deleted_at && l.firm_id === firm.id && l.code === code);
+  if (!rows.length) return <div className="chk-lic none">📜 Not yet in the Licence register — <button className="link-btn" onClick={onOpen}>add it</button></div>;
+  return <div className="chk-lic">{rows.map((l) => { const n = docsOf(d.cmpDocs.rows, "licence", l.id).length; return (
+    <span key={l.id}>📜 <b>{l.title}</b>{l.number ? ` · ${l.number}` : ""} · {n} paper{n === 1 ? "" : "s"}{l.next_due ? ` · next due ${fmtDate(l.next_due)}` : ""} <button className="link-btn" onClick={onOpen}>view papers</button></span>); })}</div>;
+}
+
+function LicPanel({ firm, code }) {
+  const d = useData();
+  const lib = d.cmpLib.rows.find((l) => l.code === code);
+  const rows = d.cmpLic.rows.filter((l) => !l.deleted_at && l.firm_id === firm.id && l.code === code);
+  const [f, setF] = useState({ title: (lib?.title || "").replace(/ — .*$/, "").replace(/ \(.*\)$/, ""), number: "", issued_on: "", valid_till: "", next_due: "" });
+  const [busy, setBusy] = useState(false);
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const create = async () => {
+    if (!f.title.trim() || !f.next_due) { toast("Give the licence a name and its next due date (renewal / retention fee).", "err"); return; }
+    setBusy(true);
+    const r = await run(supabase.from("hub_cmp_licences").insert({ firm_id: firm.id, code, title: f.title.trim(), number: f.number.trim() || null, authority: lib?.authority || null,
+      issued_on: f.issued_on || null, valid_till: f.valid_till || null, next_due: f.next_due }), "Added to the Licence register");
+    setBusy(false); if (r.ok) { d.cmpLic.reload(); d.cmpItems.reload(); }
+  };
+  return (
+    <div className="chk-licpanel">
+      <div className="cmp-alert" style={{ marginBottom: 10 }}>📜 This point is a licence. Its papers are kept in <b>one place only — the Licence register</b> (Compliance → Licences). Anything you add here appears there too, and the renewal reminder comes from there.</div>
+      {rows.length === 0 ? (
+        <div className="doc-chain">
+          <div className="doc-chain-head"><b>Add it to the Licence register</b></div>
+          <div className="cmp-form">
+            <Field label="Name"><input className="inp" value={f.title} onChange={set("title")} /></Field>
+            <Field label="Licence number"><input className="inp" value={f.number} onChange={set("number")} /></Field>
+            <Field label="Issued on"><input className="inp" type="date" value={f.issued_on} onChange={set("issued_on")} /></Field>
+            <Field label="Valid till" hint="Leave empty if it stays valid while retention fee is paid."><input className="inp" type="date" value={f.valid_till} onChange={set("valid_till")} /></Field>
+            <Field label="Next due date" hint="Next renewal or retention-fee date."><input className="inp" type="date" value={f.next_due} onChange={set("next_due")} /></Field>
+          </div>
+          <div style={{ textAlign: "right" }}><button className="btn-primary" disabled={busy} onClick={create}>{busy ? "Please wait…" : "Add to Licence register"}</button></div>
+        </div>
+      ) : rows.map((l) => (
+        <div key={l.id}>
+          <div className="small-muted" style={{ margin: "4px 0" }}><b>{l.title}</b>{l.number ? ` · ${l.number}` : ""}{l.next_due ? ` · next due ${fmtDate(l.next_due)}` : ""}</div>
+          <DocChain firmId={firm.id} type="licence" id={l.id} folder={`${firm.id}/licences/${l.id}`} title="Full chain of papers (original + every retention / renewal)" />
+        </div>
+      ))}
+    </div>
   );
 }
