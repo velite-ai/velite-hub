@@ -48,5 +48,9 @@
  "lifting": "Lifts / hoists / lifting tackle",
  "pressure": "Pressure vessels / autoclave / air receiver",
  "ecommerce": "Sells online (Amazon etc.)",
- "bank_cc": "Has a bank cash-credit / loan limit"
+ "bank_cc": "Has a bank cash-credit / loan limit",
+ "food": "Sells food products (FSSAI)",
+ "importer": "Imports goods / raw materials",
+ "botanical": "Uses plant / herbal / animal-origin ingredients",
+ "fdi": "Has foreign investment or foreign loan"
 }

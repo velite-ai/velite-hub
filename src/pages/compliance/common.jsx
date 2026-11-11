@@ -18,7 +18,7 @@ export const FLAG_GROUPS = [
   ["People", ["employees", "pf", "esi", "lwf", "posh10", "apprentice30", "contract50", "factory", "shops20", "shops_small"]],
   ["Tax", ["gst", "qrmp", "gst_2cr", "gst_5cr", "einv", "tds", "tax_audit", "msme", "dsc"]],
   ["Plant, safety & environment", ["ppcb", "haz_waste", "bmw", "pibo", "lmpc", "weights", "fire", "boiler", "ceig", "peso", "alcohol", "ndps", "groundwater", "lifting", "pressure"]],
-  ["Admin, premises & sales", ["vehicles", "rented", "owned_premises", "ecommerce", "bank_cc"]],
+  ["Admin, premises & sales", ["vehicles", "rented", "owned_premises", "ecommerce", "bank_cc", "food", "importer", "botanical", "fdi"]],
 ];
 
 // Colour + icon for every department (keeps screens lively and scannable)
@@ -37,6 +37,7 @@ export const DEPTS = {
   "E-commerce": { icon: "🛒", c: "#f59e0b" },
   "Admin & Stores": { icon: "📦", c: "#64748b" },
   "Legal, IP & Data": { icon: "⚖️", c: "#9333ea" },
+  "Checklist action": { icon: "✅", c: "#dc2626" },
 };
 export const deptStyle = (d) => DEPTS[d] || { icon: "📌", c: "#64748b" };
 export const FIRM_COLORS = { VP: "#2563eb", VH: "#db2777", VI: "#ea580c", VS: "#16a34a" };
