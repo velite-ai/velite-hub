@@ -5,6 +5,7 @@ import { fmtDate, todayISO, addDaysISO } from "../../lib/dates";
 import { Modal, Field, Empty } from "../../components/ui";
 import { evalApplies, firmColor, FirmBadge, uploadProof, openProof, personName } from "./common";
 import CHECK_DEPTS from "./checkDepts.json";
+import DocChain, { docsOf } from "./DocChain";
 
 const DEPT = Object.fromEntries(CHECK_DEPTS.map(([n, icon, c]) => [n, { icon, c }]));
 const dstyle = (d) => DEPT[d] || { icon: "📌", c: "#64748b" };
@@ -202,6 +203,7 @@ function PointList({ firm, points, amap, dept, tag, onBack, onOpenItem }) {
                     {a.ref_no && <span>Ref: {a.ref_no}</span>}
                     {a.proof_path && <button className="link-btn" onClick={() => openProof(a.proof_path)}>📎 {a.proof_name || "file"}</button>}
                     {a.proof_link && <a href={a.proof_link} target="_blank" rel="noreferrer">Open proof ↗</a>}
+                    {(() => { const n = docsOf(d.cmpDocs.rows, "check", `${firm.id}|${p.code}`).length; return n ? <button className="link-btn" onClick={() => setAns({ point: p, mode: "yes" })}>📂 {n} more paper{n === 1 ? "" : "s"}</button> : null; })()}
                     {a.note && <span className="chk-note">“{a.note}”</span>}
                     <span className="small-muted">{a.answered_by_name}, {fmtDate((a.answered_at || "").slice(0, 10))}</span>
                     {e === "no" && item && onOpenItem && <button className="link-btn chk-noprint" onClick={() => onOpenItem({ id: item.id })}>Open the action →</button>}
@@ -240,6 +242,8 @@ function AnswerModal({ firm, point, mode, prev, people, onClose }) {
     if (r) setF({ ...f, path: r.path, name: r.name });
   };
   const save = async () => {
+    const extra = docsOf(d.cmpDocs.rows, "check", `${firm.id}|${point.code}`);
+    if (mode === "yes" && !f.ref.trim() && !f.link.trim() && !f.path && extra.length) { f.ref = `${extra.length} paper${extra.length === 1 ? "" : "s"} on file`; }
     if (mode === "yes" && !f.ref.trim() && !f.link.trim() && !f.path) { toast("Add proof for Yes: attach a file, paste a link, or write a reference number.", "err"); return; }
     if (mode === "na" && !f.note.trim()) { toast("Write why it does not apply.", "err"); return; }
     if (mode === "no" && !f.due) { toast("Choose the date by which it will be fixed.", "err"); return; }
@@ -256,11 +260,12 @@ function AnswerModal({ firm, point, mode, prev, people, onClose }) {
     <Modal title={label} onClose={onClose} actions={<><button className="btn-ghost" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save"}</button></>}>
       <div className="chk-modal-q"><FirmBadge id={firm.id} /> {point.q}</div>
       {mode === "yes" && <>
-        <div className="form-hint" style={{ marginBottom: 8 }}>Give any one proof. Suggested: <b>{point.evidence}</b></div>
+        <div className="form-hint" style={{ marginBottom: 8 }}>Give any one proof below. Suggested: <b>{point.evidence}</b>. Have older papers too (e.g. past retention certificates)? Add them all under “More papers”.</div>
         <Field label="Attach a file (max 15 MB)"><input type="file" onChange={upload} disabled={busy} />{f.path && <div className="form-hint">📎 {f.name}</div>}</Field>
         <Field label="Or paste a link (Google Drive etc.)"><input className="inp" placeholder="https://…" value={f.link} onChange={set("link")} /></Field>
         <Field label="Or licence / reference number, or where the paper is kept"><input className="inp" value={f.ref} onChange={set("ref")} /></Field>
         <Field label="Note (optional)"><input className="inp" value={f.note} onChange={set("note")} /></Field>
+        <DocChain firmId={firm.id} type="check" id={`${firm.id}|${point.code}`} folder={`${firm.id}/checklist/${point.code}`} title="More papers for this point (optional — any number)" />
       </>}
       {mode === "no" && <>
         <div className="cmp-alert">Saying No is good — it shows the gap honestly. The app will create an action and send reminders until it is closed. When the action is marked done with proof, this point turns to Yes on its own.</div>

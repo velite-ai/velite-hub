@@ -336,3 +336,6 @@ revoke execute on function public.hub_cmp_licence_regen() from anon, authenticat
 -- Department checklists (Nov 2026): see checklists.sql (tables hub_chk_points / hub_chk_answers / hub_chk_heads / hub_chk_log,
 -- functions hub_chk_answer / hub_chk_confirm / hub_chk_recheck / hub_chk_send_scorecard, cron 'hub-chk-scorecard').
 -- Points are loaded from checks.json (built from checks.mjs) by upsert on code.
+
+-- Papers chain (Nov 2026): hub_cmp_docs — any number of dated papers per licence (parent_type 'licence', parent_id = licence id)
+-- or per checklist point (parent_type 'check', parent_id = 'FIRM|CODE'). Stamped by hub_cmp_docs_stamp; soft delete by owner or uploader.

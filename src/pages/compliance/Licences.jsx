@@ -5,6 +5,7 @@ import { Modal, Field, Empty } from "../../components/ui";
 import { fmtDate, dueLabel } from "../../lib/dates";
 import { Pill } from "../ipr/shared";
 import { applicability, uploadProof, openProof, FirmBadge } from "./common";
+import DocChain, { docsOf } from "./DocChain";
 
 export default function Licences() {
   const d = useData();
@@ -25,7 +26,7 @@ export default function Licences() {
       </div>
       {rows.length === 0 ? <Empty>No licences entered yet. Start with Form 25 (VP), COS-8 (VH), 20B/21B (VI), factory licence, PPCB consents and fire certificate.</Empty> : (
         <div className="table-wrap"><table className="tbl">
-          <thead><tr><th>Firm</th><th>Licence / certificate</th><th>Number</th><th>Valid till</th><th>Next due</th><th>Proof</th></tr></thead>
+          <thead><tr><th>Firm</th><th>Licence / certificate</th><th>Number</th><th>Valid till</th><th>Next due</th><th>Papers</th></tr></thead>
           <tbody>{rows.map((l) => { const b = l.next_due ? dueLabel(l.next_due) : null; return (
             <tr key={l.id} className="click-row" onClick={() => setEdit(l)}>
               <td><FirmBadge id={l.firm_id} /></td>
@@ -33,19 +34,16 @@ export default function Licences() {
               <td>{l.number || "—"}<div className="small-muted">{l.authority}</div></td>
               <td>{l.valid_till ? fmtDate(l.valid_till) : "Perpetual"}</td>
               <td>{b ? <span className={`due ${b.cls}`}>{b.text}</span> : <Pill tone="red">Not set</Pill>}</td>
-              <td onClick={(e) => e.stopPropagation()}>
-                {l.proof_path && <button className="link-btn" onClick={() => openProof(l.proof_path)}>📎 File</button>}
-                {l.proof_link && <a href={l.proof_link} target="_blank" rel="noreferrer"> Link ↗</a>}
-              </td>
+              <td>{(() => { const n = docsOf(d.cmpDocs.rows, "licence", l.id).length; return n ? <span className="doc-count">📂 {n}</span> : <span className="small-muted">none</span>; })()}</td>
             </tr>); })}</tbody>
         </table></div>
       )}
-      {edit && <LicenceModal lic={edit} onClose={() => setEdit(null)} />}
+      {edit && <LicenceModal key={edit.id || "new"} lic={edit} onClose={() => setEdit(null)} onReopen={setEdit} />}
     </div>
   );
 }
 
-function LicenceModal({ lic, onClose }) {
+function LicenceModal({ lic, onClose, onReopen }) {
   const d = useData();
   const isNew = !lic.id;
   const [f, setF] = useState({
@@ -74,10 +72,13 @@ function LicenceModal({ lic, onClose }) {
     setBusy(true);
     const row = { ...f, code: f.code || null, title: f.title.trim(), issued_on: f.issued_on || null, valid_till: f.valid_till || null,
       next_due: f.next_due || null, proof_link: f.proof_link || null, proof_name: f.proof_name || null, number: f.number || null, authority: f.authority || null, notes: f.notes || null };
-    const q = isNew ? supabase.from("hub_cmp_licences").insert(row) : supabase.from("hub_cmp_licences").update(row).eq("id", lic.id);
+    const q = isNew ? supabase.from("hub_cmp_licences").insert(row).select() : supabase.from("hub_cmp_licences").update(row).eq("id", lic.id);
     const r = await run(q, "Saved");
     setBusy(false);
-    if (r.ok) { d.cmpLic.reload(); d.cmpItems.reload(); onClose(); }
+    if (r.ok) {
+      d.cmpLic.reload(); d.cmpItems.reload();
+      if (isNew && r.data?.[0]) { toast("Saved — now add its papers"); onReopen?.(r.data[0]); } else onClose();
+    }
   };
   const del = async () => {
     if (!window.confirm("Remove this licence from the register?")) return;
@@ -100,12 +101,11 @@ function LicenceModal({ lic, onClose }) {
         <Field label="Issued on"><input className="inp" type="date" value={f.issued_on} onChange={set("issued_on")} /></Field>
         <Field label="Valid till" hint="Leave empty if perpetual (e.g. Form 25, COS-8, 20B/21B)."><input className="inp" type="date" value={f.valid_till} onChange={set("valid_till")} /></Field>
         <Field label="Next due date" hint="Renewal or retention-fee date. For 5-yearly retention: 5th anniversary of issue."><input className="inp" type="date" value={f.next_due} onChange={set("next_due")} /></Field>
-        <Field label="Proof link (Drive)"><input className="inp" value={f.proof_link} onChange={set("proof_link")} /></Field>
-        <Field label="Or attach the licence (max 15 MB)"><input type="file" onChange={upload} disabled={busy} />
-          {f.proof_path && <div className="form-hint"><button className="link-btn" onClick={() => openProof(f.proof_path)}>📎 {f.proof_name || "file"}</button></div>}</Field>
       </div>
       <Field label="Notes"><textarea className="inp" rows={2} value={f.notes} onChange={set("notes")} /></Field>
-      <div className="small-muted">After renewing, update <b>Next due date</b> to the following cycle — the reminder moves automatically.</div>
+      {isNew ? <div className="cmp-alert">Save first. Then open the licence again to add <b>all its papers</b> — the original licence, every retention certificate and fee receipt, oldest to newest.</div>
+        : <DocChain firmId={lic.firm_id} type="licence" id={lic.id} folder={`${lic.firm_id}/licences/${lic.id}`} title="Full chain of papers (original + every retention / renewal)" />}
+      <div className="small-muted" style={{ marginTop: 8 }}>After renewing, update <b>Next due date</b> to the following cycle — the reminder moves automatically. A Form 25 / 28 / COS-8 / 20B / 21B licence is perpetual while retention is paid, so leave <b>Valid till</b> empty and put each period on its retention certificate.</div>
     </Modal>
   );
 }
