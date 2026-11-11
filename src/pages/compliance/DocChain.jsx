@@ -8,7 +8,9 @@ export const DOC_KINDS = ["Original licence / certificate", "Retention certifica
 
 export const docsOf = (rows, type, id) => rows
   .filter((x) => !x.deleted_at && x.parent_type === type && x.parent_id === id)
-  .sort((a, b) => ((a.issued_on || a.valid_from || a.created_at || "") < (b.issued_on || b.valid_from || b.created_at || "") ? -1 : 1));
+  .sort((a, b) => (key(a) < key(b) ? -1 : 1));
+// oldest first by the paper's own dates; undated papers go to the end
+const key = (x) => x.valid_from || x.issued_on || x.valid_till || "9999" + (x.created_at || "");
 
 // A dated list of papers ("chain") for one licence or one checklist point. Any number of files.
 export default function DocChain({ firmId, type, id, folder, title = "Papers on file" }) {
