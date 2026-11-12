@@ -39,7 +39,8 @@ export default function App() {
     return () => { supabase.removeChannel(ch); clearInterval(iv); };
   }, [uid, loadProfile]);
 
-  const signOut = () => supabase.auth.signOut();
+  // Log out only this device (default "global" would end the session on every phone and computer too).
+  const signOut = () => { if (window.confirm("Log out of Velite Hub on this device?")) supabase.auth.signOut({ scope: "local" }); };
 
   let body;
   if (session === undefined || (session && profile === undefined)) body = <div className="loading">Loading Velite Hub…</div>;
