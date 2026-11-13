@@ -67,12 +67,13 @@ export function DataProvider({ me, children }) {
   const cmpLic = useTable("hub_cmp_licences", { order: "next_due", ascending: true });
   const chkPoints = useTable("hub_chk_points", { order: "sort", ascending: true });
   const chkAnswers = useTable("hub_chk_answers", { order: "code", ascending: true });
+  const notifs = useTable("hub_notifications", { order: "created_at", ascending: false });
   const cmpDocs = useTable("hub_cmp_docs", { order: "created_at", ascending: true });
   const chkHeads = useTable("hub_chk_heads", { order: "dept", ascending: true });
 
   const value = { me, isOwner, profiles, materials, tasks, comments, goals, goalItems, trademarks,
     iprNotices, iprThird, iprDocs, iprMatters, iprOptions,
-    cmpItems, cmpLib, cmpFirms, cmpAssign, cmpLic, chkPoints, chkAnswers, chkHeads, cmpDocs };
+    cmpItems, cmpLib, cmpFirms, cmpAssign, cmpLic, chkPoints, chkAnswers, chkHeads, cmpDocs, notifs };
   return <DataCtx.Provider value={value}>{children}</DataCtx.Provider>;
 }
 

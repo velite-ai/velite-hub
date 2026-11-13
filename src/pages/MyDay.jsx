@@ -2,7 +2,7 @@ import { useState } from "react";
 import { supabase } from "../supabase";
 import { useData, run } from "../lib/data";
 import { daysUntil, timeAgo, dueLabel } from "../lib/dates";
-import { isMine, byDue, TaskCard, TaskModal } from "./Tasks";
+import { isMine, isHelper, byDue, TaskCard, TaskModal, useTaskStatus } from "./Tasks";
 import { materialsSummary } from "./Materials";
 import { goalProgress } from "./Compass";
 import { tmDue } from "./Trademarks";
@@ -50,7 +50,9 @@ export default function MyDay({ go }) {
     ? tasks.rows.find((t) => t.id === c.entity_id)?.title
     : materials.rows.find((m) => m.id === c.entity_id)?.name;
 
-  const setStatus = async (t, status) => { const r = await run(supabase.from("hub_tasks").update({ status }).eq("id", t.id), status === "Done" ? "Task completed ✅" : null); if (r.ok) tasks.reload(); };
+  const [setStatus, doneDialog] = useTaskStatus(tasks.reload);
+  const openTask = (t) => { window.location.hash = `tasks/${t.id}`; };
+  const helping = open.filter((t) => isHelper(t, me)).sort(byDue);
 
   const teamOverdue = open.filter((t) => t.due_date && daysUntil(t.due_date) < 0);
   const byPerson = {};
@@ -59,7 +61,7 @@ export default function MyDay({ go }) {
   const block = (title, list, tone) => list.length > 0 && (
     <div className={`day-block ${tone || ""}`}>
       <div className="day-block-title">{title} <span className="section-count">{list.length}</span></div>
-      {list.map((t) => <TaskCard key={t.id} t={t} compact onStatus={(s) => setStatus(t, s)} />)}
+      {list.map((t) => <TaskCard key={t.id} t={t} compact onStatus={(s) => setStatus(t, s)} onOpen={() => openTask(t)} />)}
     </div>
   );
 
@@ -87,6 +89,7 @@ export default function MyDay({ go }) {
             {block("This week", week)}
             {block("Later", later)}
             {block("No due date", noDate, "tone-muted")}
+            {block("🤝 Helping others", helping, "tone-muted")}
           </div>
         </div>
 
@@ -181,6 +184,7 @@ export default function MyDay({ go }) {
         </div>
       </div>
       {edit && <TaskModal task={null} onClose={() => setEdit(null)} onSaved={tasks.reload} />}
+      {doneDialog}
     </div>
   );
 }

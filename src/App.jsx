@@ -9,6 +9,7 @@ import Compass from "./pages/Compass";
 import Trademarks from "./pages/Trademarks";
 import Compliance from "./pages/Compliance";
 import Admin, { AccountModal } from "./pages/Admin";
+import { timeAgo } from "./lib/dates";
 
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = still checking
@@ -57,6 +58,42 @@ export default function App() {
   return <>{body}<Toasts /></>;
 }
 
+function Bell({ alerts, go }) {
+  const { notifs } = useData();
+  const [open, setOpen] = useState(false);
+  const unread = notifs.rows.filter((n) => !n.read_at);
+  const markAll = async () => { await supabase.from("hub_notifications").update({ read_at: new Date().toISOString() }).is("read_at", null); notifs.reload(); };
+  const click = async (n) => {
+    setOpen(false);
+    if (!n.read_at) { await supabase.from("hub_notifications").update({ read_at: new Date().toISOString() }).eq("id", n.id); notifs.reload(); }
+    if (n.entity_type === "task" && n.entity_id) window.location.hash = `tasks/${n.entity_id}`;
+  };
+  const icon = { assigned: "📌", helper: "🤝", moved: "↪️", status: "🔄", done: "✅", comment: "💬", due: "⏰", overdue: "🔴", escalated: "⬆️" };
+  const n = unread.length + alerts;
+  return (
+    <div className="bell-wrap">
+      <button className="bell" title="Notifications" onClick={() => setOpen((o) => !o)}>🔔{n > 0 && <span className="bell-n">{n}</span>}</button>
+      {open && <>
+        <div className="bell-shade" onClick={() => setOpen(false)} />
+        <div className="bell-panel">
+          <div className="bell-head"><b>Notifications</b>{unread.length > 0 && <button className="link-btn" onClick={markAll}>Mark all as read</button>}</div>
+          {alerts > 0 && <button className="bell-alert" onClick={() => { setOpen(false); go("myday"); }}>⚠️ {alerts} task{alerts === 1 ? "" : "s"} / compliance item{alerts === 1 ? "" : "s"} due today or late — open My Day →</button>}
+          <div className="bell-list">
+            {notifs.rows.length === 0 && <div className="bell-empty">Nothing yet. You will see here when a task is given to you, changes or gets a comment.</div>}
+            {notifs.rows.slice(0, 40).map((x) => (
+              <button key={x.id} className={`bell-item ${x.read_at ? "" : "unread"}`} onClick={() => click(x)}>
+                <span className="bell-ic">{icon[x.kind] || "🔔"}</span>
+                <span className="bell-txt"><span className="bell-t">{x.title}</span>{x.body && <span className="bell-b">{x.body}</span>}
+                  <span className="bell-m">{x.actor_name ? `${x.actor_name} · ` : ""}{timeAgo(x.created_at)}</span></span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </>}
+    </div>
+  );
+}
+
 const TABS = [
   { k: "myday", label: "🏠 My Day" },
   { k: "materials", label: "📦 Materials" },
@@ -68,7 +105,7 @@ const TABS = [
 ];
 
 function useHashTab(allowed) {
-  const read = () => { const h = window.location.hash.replace("#", ""); return allowed.includes(h) ? h : "myday"; };
+  const read = () => { const h = window.location.hash.replace("#", "").split("/")[0]; return allowed.includes(h) ? h : "myday"; };
   const [tab, setTab] = useState(read);
   useEffect(() => { const f = () => setTab(read()); window.addEventListener("hashchange", f); return () => window.removeEventListener("hashchange", f); });
   const go = (k) => { window.location.hash = k; setTab(k); window.scrollTo(0, 0); };
@@ -92,9 +129,7 @@ function Shell({ onSignOut, reloadMe }) {
             <span className="brand-loc">Ludhiana</span>
           </div>
           <div className="user-info">
-            <button className="bell" title="My overdue & due-today tasks and compliances" onClick={() => go("myday")}>
-              🔔{alerts > 0 && <span className="bell-n">{alerts}</span>}
-            </button>
+            <Bell alerts={alerts} go={go} />
             <button className="user-badge" onClick={() => setAcct(true)} title="My account">👤 {me.full_name}</button>
             <button className="logout-btn" onClick={onSignOut}>Logout</button>
           </div>

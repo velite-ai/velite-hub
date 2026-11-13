@@ -9,7 +9,7 @@ export function Modal({ title, onClose, children, actions, wide }) {
   return (
     <div className="modal-overlay" onMouseDown={onClose}>
       <div className={`modal ${wide ? "modal-wide" : ""}`} onMouseDown={(e) => e.stopPropagation()}>
-        <h3>{title}</h3>
+        {title && <h3>{title}</h3>}
         {children}
         {actions && <div className="modal-actions">{actions}</div>}
       </div>
