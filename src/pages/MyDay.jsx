@@ -4,7 +4,7 @@ import { useData, run } from "../lib/data";
 import { daysUntil, timeAgo, dueLabel } from "../lib/dates";
 import { isMine, isHelper, byDue, TaskCard, TaskModal, useTaskStatus } from "./Tasks";
 import { materialsSummary } from "./Materials";
-import { goalProgress } from "./Compass";
+import { progressOf } from "./Compass";
 import { tmDue } from "./Trademarks";
 import { fmtDate } from "../lib/dates";
 import { Empty } from "../components/ui";
@@ -174,9 +174,9 @@ export default function MyDay({ go }) {
                 {Object.entries(byPerson).sort((a, b) => b[1].over - a[1].over || b[1].open - a[1].open).map(([k, v]) => (
                   <div key={k} className="side-item flex-between"><span>{k}</span><span>{v.open} open{v.over ? <span className="due-over"> · {v.over} overdue</span> : ""}</span></div>
                 ))}
-                {goals.rows.filter((g) => !g.deleted_at && !g.achieved).length > 0 && <div className="day-block-title" style={{ marginTop: 10 }}>Goals</div>}
-                {goals.rows.filter((g) => !g.deleted_at && !g.achieved).map((g) => (
-                  <div key={g.id} className="side-item flex-between"><span>{g.title}</span><span>{goalProgress(goalItems.rows.filter((i) => i.goal_id === g.id))}%</span></div>
+                {goals.rows.filter((g) => !g.deleted_at && !g.achieved && g.level === "goal").length > 0 && <div className="day-block-title" style={{ marginTop: 10 }}>🧭 Goals</div>}
+                {goals.rows.filter((g) => !g.deleted_at && !g.achieved && g.level === "goal").map((g) => (
+                  <div key={g.id} className="side-item flex-between"><span>{g.scope === "personal" ? "🔒 " : ""}{g.title}</span><span>{progressOf(g, goalItems.rows, tasks.rows)}%</span></div>
                 ))}
               </div>
             </div>

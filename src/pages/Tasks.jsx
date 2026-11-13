@@ -195,7 +195,7 @@ export default function Tasks() {
 
 // ── Card ─────────────────────────────────────────────────────────────
 export function TaskCard({ t, archived, onStatus, onOpen, onEdit, onDelete, compact, draggable }) {
-  const { me, isOwner, comments, profiles } = useData();
+  const { me, isOwner, comments, profiles, goals } = useData();
   const due = !archived && t.due_date ? dueLabel(t.due_date) : null;
   const cp = checkProgress(t);
   const nC = commentCount(comments, "task", t.id);
@@ -210,6 +210,8 @@ export function TaskCard({ t, archived, onStatus, onOpen, onEdit, onDelete, comp
           {t.firm_id && <span className="tk-firm" style={{ background: FIRM_COLORS[t.firm_id] }}>{t.firm_id}</span>}
           {t.title}
           {t.repeat && <span className="tk-mini" title="Repeats">🔁</span>}
+          {t.private && <span className="tk-mini" title="Private — only you can see it">🔒</span>}
+          {t.goal_id && isOwner && <span className="tk-goal" title="Part of a Business Compass goal">🎯 {goals.rows.find((g) => g.id === t.goal_id)?.title || "Goal"}</span>}
         </div>
         <div className="todo-actions" onClick={stop}>
           {archived
@@ -429,15 +431,15 @@ function TaskDetail({ t, onClose, onEdit, onStatus }) {
 }
 
 // ── Add / edit ───────────────────────────────────────────────────────
-export function TaskModal({ task, onClose, onSaved }) {
+export function TaskModal({ task, onClose, onSaved, preset }) {
   const { profiles, me } = useData();
   const people = profiles.rows.filter((p) => p.status === "approved");
   const [f, setF] = useState(() => ({
-    title: task?.title || "", description: task?.description || "",
-    assignee: task?.assignee_id || (task?.assignee_name ? `name:${task.assignee_name}` : ""),
+    title: task?.title || preset?.title || "", description: task?.description || "",
+    assignee: task?.assignee_id || (task?.assignee_name ? `name:${task.assignee_name}` : "") || preset?.assignee || "",
     helpers: task?.helper_ids || [], copies: false,
     department: task?.department || DEPARTMENTS[0], priority: task?.priority || "Medium",
-    status: task?.status || "To-Do", due_date: task?.due_date || "", firm_id: task?.firm_id || "",
+    status: task?.status || "To-Do", due_date: task?.due_date || preset?.due_date || "", firm_id: task?.firm_id || preset?.firm_id || "",
     repeat: task?.repeat || "", checklist: (task?.checklist || []).map((x) => x.text).join("\n"),
   }));
   const [busy, setBusy] = useState(false);
@@ -455,6 +457,7 @@ export function TaskModal({ task, onClose, onSaved }) {
     const base = {
       title: f.title.trim(), description: f.description, department: f.department, priority: f.priority,
       status: f.status, due_date: f.due_date || null, firm_id: f.firm_id || null, repeat: f.repeat || null, checklist,
+      ...(preset?.goal_id && !task ? { goal_id: preset.goal_id, milestone_id: preset.milestone_id || null } : {}),
     };
     setBusy(true);
     let r;
@@ -474,11 +477,13 @@ export function TaskModal({ task, onClose, onSaved }) {
   const depts = DEPARTMENTS.includes(f.department) || !f.department ? DEPARTMENTS : [f.department, ...DEPARTMENTS];
   const others = people.filter((p) => p.id !== f.assignee);
   return (
-    <Modal wide title={task ? "Edit task" : "New task"} onClose={onClose}
+    <Modal wide title={task ? "Edit task" : preset?.goal_id ? `New task for goal: ${preset.goalTitle || ""}` : "New task"} onClose={onClose}
       actions={<><button className="btn-ghost" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy} onClick={save}>{busy ? "Saving…" : task ? "Save" : "Add task"}</button></>}>
       <Field label="What needs to be done?"><input className="form-inp" value={f.title} onChange={set("title")} autoFocus placeholder="e.g. Collect original approvals from Drug Office" /></Field>
       <Field label="Details (optional)"><textarea className="form-inp" rows={2} value={f.description} onChange={set("description")} /></Field>
-      <div className="form-grid">
+      {preset?.personal && <><div className="cmp-alert" style={{ marginBottom: 10 }}>🔒 Private task from your personal goal — only you will see it.</div>
+        <Field label="Due date"><input className="form-inp" type="date" value={f.due_date} onChange={set("due_date")} /></Field></>}
+      <div className="form-grid" style={preset?.personal ? { display: "none" } : undefined}>
         <Field label="Main person (responsible)">
           <select className="form-inp" value={f.assignee} onChange={set("assignee")}>
             <option value="">— choose —</option>
@@ -488,7 +493,7 @@ export function TaskModal({ task, onClose, onSaved }) {
         </Field>
         <Field label="Due date"><input className="form-inp" type="date" value={f.due_date} onChange={set("due_date")} /></Field>
       </div>
-      {f.assignee && !f.assignee.startsWith("name:") && (
+      {f.assignee && !f.assignee.startsWith("name:") && !preset?.personal && (
         <Field label="Helpers (optional)" hint="Helpers are told, see it in their list and can comment and attach files. Only the main person closes it.">
           <div className="tk-pick">{others.map((p) => <button type="button" key={p.id} className={f.helpers.includes(p.id) ? "on" : ""} onClick={() => toggleHelper(p.id)}><Avatar name={p.full_name} size={18} /> {p.full_name}</button>)}</div>
           {!task && f.helpers.length > 0 && (

@@ -68,8 +68,9 @@ function Bell({ alerts, go }) {
     if (!n.read_at) { await supabase.from("hub_notifications").update({ read_at: new Date().toISOString() }).eq("id", n.id); notifs.reload(); }
     if (n.entity_type === "task" && n.entity_id) window.location.hash = `tasks/${n.entity_id}`;
     if (n.entity_type === "material") window.location.hash = "materials";
+    if (n.entity_type === "goal") window.location.hash = "compass";
   };
-  const icon = { assigned: "📌", helper: "🤝", moved: "↪️", status: "🔄", done: "✅", comment: "💬", due: "⏰", overdue: "🔴", escalated: "⬆️", material: "📦" };
+  const icon = { assigned: "📌", helper: "🤝", moved: "↪️", status: "🔄", done: "✅", comment: "💬", due: "⏰", overdue: "🔴", escalated: "⬆️", material: "📦", goal: "🧭" };
   const n = unread.length + alerts;
   return (
     <div className="bell-wrap">
