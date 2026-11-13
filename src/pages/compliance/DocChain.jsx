@@ -3,6 +3,8 @@ import { supabase } from "../../supabase";
 import { useData, run, toast } from "../../lib/data";
 import { fmtDate } from "../../lib/dates";
 import { uploadProof, openProof } from "./common";
+import { getClientId, driveToken, isDriveLink } from "../../lib/drive";
+import { copyDocFromDrive } from "./DriveImport";
 
 export const DOC_KINDS = ["Original licence / certificate", "Retention certificate", "Renewal", "Fee challan / receipt", "Amendment / endorsement", "Approved product list", "Inspection report / reply", "Other"];
 
@@ -40,6 +42,14 @@ export default function DocChain({ firmId, type, id, folder, title = "Papers on 
     const r = await run(supabase.from("hub_cmp_docs").update({ deleted_at: new Date().toISOString() }).eq("id", x.id), "Removed");
     if (r.ok) d.cmpDocs.reload();
   };
+  const copyIn = async (x) => {
+    const cid = await getClientId();
+    if (!cid) { toast("Set up Google Drive first: Licences → ⬇ Copy Drive files into Hub", "err"); return; }
+    setBusy(true);
+    try { await copyDocFromDrive(x, await driveToken(cid)); toast("File copied into the Hub"); d.cmpDocs.reload(); }
+    catch (e) { toast(e.message, "err"); }
+    setBusy(false);
+  };
   const period = (x) => x.valid_from || x.valid_till ? `${x.valid_from ? fmtDate(x.valid_from) : "…"} → ${x.valid_till ? fmtDate(x.valid_till) : "…"}` : "";
 
   return (
@@ -54,6 +64,7 @@ export default function DocChain({ firmId, type, id, folder, title = "Papers on 
           <div className="doc-acts">
             {x.file_path && <button className="link-btn" onClick={() => openProof(x.file_path)}>📎 Open</button>}
             {x.link && <a href={x.link} target="_blank" rel="noreferrer">Link ↗</a>}
+            {d.isOwner && !x.file_path && isDriveLink(x.link) && <button className="link-btn" disabled={busy} title="Copy this Drive file into the Hub" onClick={() => copyIn(x)}>⬇ Copy in</button>}
             {(d.isOwner || x.created_by === d.me.id) && <button className="link-btn doc-del" title="Remove" onClick={() => remove(x)}>✕</button>}
           </div>
         </li>))}</ol>}

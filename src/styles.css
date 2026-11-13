@@ -774,3 +774,6 @@ button:disabled{opacity:0.6;cursor:default;}
 .tk-goal{font-size:11px;background:#eef2ff;color:#3730a3;border-radius:8px;padding:1px 7px;margin-left:6px;font-weight:600;vertical-align:2px;}
 @media (max-width:900px){.gc-kpis{grid-template-columns:repeat(3,1fr);}}
 @media (max-width:560px){.gc-kpis{grid-template-columns:repeat(2,1fr);} .gc-d-head{flex-direction:column;align-items:flex-start;}}
+
+.small-steps { margin: 8px 0 0 18px; line-height: 1.6; font-size: 14px; }
+.small-steps code { background: #f2f4f7; padding: 1px 4px; border-radius: 4px; }

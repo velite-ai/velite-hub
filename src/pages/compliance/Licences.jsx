@@ -6,6 +6,7 @@ import { fmtDate, dueLabel } from "../../lib/dates";
 import { Pill } from "../ipr/shared";
 import { applicability, uploadProof, openProof, FirmBadge } from "./common";
 import DocChain, { docsOf } from "./DocChain";
+import DriveImport from "./DriveImport";
 
 export default function Licences() {
   const d = useData();
@@ -18,7 +19,7 @@ export default function Licences() {
     <div className="ipanel">
       <div className="ipanel-head">
         <div><h3>Licences & certificates</h3><p>The <b>one place</b> for every licence and all its papers. Enter it once with its <b>next due date</b> (renewal or retention-fee date); the tracker reminds you before it, and the matching checklist point shows the same papers.</p></div>
-        <button className="btn-primary" onClick={() => setEdit({})}>+ Add licence</button>
+        <div style={{ display: "flex", gap: 8 }}><DriveImport /><button className="btn-primary" onClick={() => setEdit({})}>+ Add licence</button></div>
       </div>
       <div className="filter-bar" style={{ marginBottom: 10 }}>
         <select className="inp inp-filter" value={firm} onChange={(e) => setFirm(e.target.value)}>
