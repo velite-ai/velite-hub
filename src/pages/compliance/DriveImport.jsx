@@ -22,7 +22,8 @@ async function copyLicenceProof(lic, tok) {
   if (error) throw new Error(error.message);
 }
 
-export const pendingDocs = (rows) => rows.filter((x) => !x.deleted_at && !x.file_path && isDriveLink(x.link));
+// Papers marked "[link only]" (e.g. larger than the 15 MB limit) stay as Drive links and are not offered again
+export const pendingDocs = (rows) => rows.filter((x) => !x.deleted_at && !x.file_path && isDriveLink(x.link) && !(x.notes || "").includes("[link only]"));
 const pendingLics = (rows) => rows.filter((x) => !x.deleted_at && !x.proof_path && isDriveLink(x.proof_link));
 
 // Owner-only button + window on the Licences page
