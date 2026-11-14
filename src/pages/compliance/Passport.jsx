@@ -34,7 +34,8 @@ export default function Passport() {
   const firm = firms.find((f) => f.id === firmId) || firms[0];
   const root = useRef(null);
 
-  // Fit the passport on ONE A4 page: lay it out at print width, measure it, and shrink only if it is taller than the page.
+  // Print on A4. Small firms fit on one page; if only slightly over, shrink a little to avoid an almost-empty second page;
+  // otherwise keep the text readable and let it flow onto more pages (rows never split across pages).
   const printIt = () => {
     const el = root.current; if (!el) return window.print();
     el.style.removeProperty("--pp-zoom");
@@ -42,7 +43,8 @@ export default function Passport() {
     const h = el.scrollHeight;
     el.classList.remove("pp-measure");
     const pageH = 262 * (96 / 25.4);            // A4 height minus margins, in CSS px (with spare room)
-    el.style.setProperty("--pp-zoom", Math.max(0.4, Math.min(1, pageH / h)).toFixed(3));
+    const fit = pageH / h;
+    el.style.setProperty("--pp-zoom", fit >= 0.88 ? Math.min(1, fit).toFixed(3) : "1");
     window.print();
   };
 
@@ -102,7 +104,7 @@ export default function Passport() {
       <div className="pp-cols">
         <div className="pp-main">
           {grouped.map(([g, list]) => (
-            <div key={g} className="pp-box pp-group">
+            <div key={g} className={`pp-box pp-group${list.length <= 6 ? " pp-keep" : ""}`}>
               <div className="pp-gh"><h3>{g}</h3><span>{list.length} item{list.length === 1 ? "" : "s"}</span></div>
               {list.map((r) => (
                 <div key={r.l.id} className={`pp-row ${r.st.k}`}>
