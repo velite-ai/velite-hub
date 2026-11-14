@@ -777,3 +777,8 @@ button:disabled{opacity:0.6;cursor:default;}
 
 .small-steps { margin: 8px 0 0 18px; line-height: 1.6; font-size: 14px; }
 .small-steps code { background: #f2f4f7; padding: 1px 4px; border-radius: 4px; }
+
+/* Checklist: papers on file under each point */
+.chk-papers { margin: 6px 0 2px; font-size: 13px; }
+.chk-papers summary { cursor: pointer; font-weight: 600; color: #1e3a8a; }
+.chk-papers .doc-list { margin: 4px 0 6px 0; padding-left: 18px; }
