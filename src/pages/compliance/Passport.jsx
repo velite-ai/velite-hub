@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useData } from "../../lib/data";
 import { daysUntil, fmtDate } from "../../lib/dates";
 import { firmColor, openProof } from "./common";
@@ -32,6 +32,21 @@ export default function Passport() {
   const [firmId, setFirmId] = useState(firms[0]?.id || "");
   const [openRow, setOpenRow] = useState(null);
   const firm = firms.find((f) => f.id === firmId) || firms[0];
+  const root = useRef(null);
+
+  // Print on A4. Small firms fit on one page; if only slightly over, shrink a little to avoid an almost-empty second page;
+  // otherwise keep the text readable and let it flow onto more pages (rows never split across pages).
+  const printIt = () => {
+    const el = root.current; if (!el) return window.print();
+    el.style.removeProperty("--pp-zoom");
+    el.classList.add("pp-measure");
+    const h = el.scrollHeight;
+    el.classList.remove("pp-measure");
+    const pageH = 262 * (96 / 25.4);            // A4 height minus margins, in CSS px (with spare room)
+    const fit = pageH / h;
+    el.style.setProperty("--pp-zoom", fit >= 0.88 ? Math.min(1, fit).toFixed(3) : "1");
+    window.print();
+  };
 
   const rows = useMemo(() => d.cmpLic.rows
     .filter((l) => !l.deleted_at && l.firm_id === firm?.id)
@@ -50,7 +65,7 @@ export default function Passport() {
   const color = firmColor(firm.id);
 
   return (
-    <div className="pp">
+    <div className="pp" ref={root}>
       <div className="pp-switch chk-noprint">
         {firms.map((f) => <button key={f.id} className={f.id === firm.id ? "on" : ""} onClick={() => { setFirmId(f.id); setOpenRow(null); }}><i style={{ background: firmColor(f.id) }} />{f.name}</button>)}
       </div>
@@ -61,7 +76,7 @@ export default function Passport() {
           <h2>{firm.name}</h2>
           <div className="pp-sub">{[firm.constitution, firm.notes].filter(Boolean).join(" · ")}</div>
         </div>
-        <button className="btn-ghost chk-noprint" onClick={() => window.print()}>🖨️ Print / save as PDF</button>
+        <button className="btn-ghost chk-noprint" onClick={printIt}>🖨️ Print / save as PDF</button>
       </div>
 
       <div className="pp-counters">
@@ -89,7 +104,7 @@ export default function Passport() {
       <div className="pp-cols">
         <div className="pp-main">
           {grouped.map(([g, list]) => (
-            <div key={g} className="pp-box pp-group">
+            <div key={g} className={`pp-box pp-group${list.length <= 6 ? " pp-keep" : ""}`}>
               <div className="pp-gh"><h3>{g}</h3><span>{list.length} item{list.length === 1 ? "" : "s"}</span></div>
               {list.map((r) => (
                 <div key={r.l.id} className={`pp-row ${r.st.k}`}>
