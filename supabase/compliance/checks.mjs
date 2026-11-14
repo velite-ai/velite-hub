@@ -30,7 +30,7 @@ export const CHECK_DEPTS = [
 ];
 
 // Checklist points that ARE a licence: their papers live only in the Licence register (one place), linked by library code.
-export const CHECK_LIC = { GS08: "FT11", DM01: "RD01", DS01: "RD15", CM01: "RC01", FD01: "FD01", PL02: "EV01", PL05: "EV02", FA01: "FS01", FI01: "FS04",
+export const CHECK_LIC = { GS08: "FT11", LM01: "LM10", LM04: "LM11", DG01: "DG10", TP01: "TP10", DM01: "RD01", DS01: "RD15", CM01: "RC01", FD01: "FD01", PL02: "EV01", PL05: "EV02", FA01: "FS01", FI01: "FS04",
   BO01: "FS06", BO04: "FS09", PS06: "FS07", DM18: "FS11", DM19: "FS10", MU01: "AD07", DG02: "EX02", CD05: "RD12", MC04: "CO08", MU04: "FS14" };
 
 const D = (dept, rows) => rows.map((r) => ({ code: r[0], dept, applies: r[1], risk: r[2], tags: r[3] ? r[3].split(",") : [], q: r[4], why: r[5], law: r[6], evidence: r[7] }));
