@@ -831,3 +831,30 @@ button:disabled{opacity:0.6;cursor:default;}
 .dk-done{display:flex;flex-wrap:wrap;gap:6px 22px;align-items:center;font-size:15px;color:#344054;margin-top:6px;}
 @media (max-width:760px){.dk-me{max-width:none;} .dk-pname b{font-size:21px;} .dk-acts{flex-direction:row;flex-wrap:wrap;}}
 @media print{.dk-ptasks{display:none;}}
+
+/* Firm passport: one A4 page. .pp-measure lays it out at print width so the page can be measured before printing. */
+@page passport{size:A4 portrait;margin:10mm;}
+.pp.pp-measure{width:190mm;}
+@media print{.pp{page:passport;zoom:var(--pp-zoom,1);width:190mm;}}
+.pp.pp-measure{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+.pp.pp-measure .pp-switch,.pp.pp-measure .pp-hero .btn-ghost,.pp.pp-measure .pp-papers,.pp.pp-measure .pp-docs,.pp.pp-measure .pp-hint,.pp.pp-measure .pp-side,.pp.pp-measure .pp-row .pp-date small{display:none !important;}
+.pp.pp-measure .pp-hero{padding:10px 14px;border-radius:8px;gap:4px;} .pp.pp-measure .pp-hero h2{font-size:20pt;margin:2px 0;} .pp.pp-measure .pp-sub{font-size:9pt;} .pp.pp-measure .pp-kicker{font-size:8pt;}
+.pp.pp-measure .pp-counters{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;} .pp.pp-measure .pp-c{padding:6px 10px;} .pp.pp-measure .pp-c b{font-size:18pt;} .pp.pp-measure .pp-c span{font-size:8pt;margin-top:2px;padding:2px 8px;} .pp.pp-measure .pp-c small{font-size:8pt;margin-top:2px;}
+.pp.pp-measure .pp{gap:8px;} .pp.pp-measure .pp-box{padding:8px 12px;border-radius:8px;} .pp.pp-measure .pp-box h3{font-size:11pt;}
+.pp.pp-measure .pp-urgent{padding:5px 10px;margin-top:4px;gap:8px;} .pp.pp-measure .pp-urgent b{font-size:9pt;} .pp.pp-measure .pp-urgent small{font-size:8pt;}
+.pp.pp-measure .pp-cols{display:block;} .pp.pp-measure .pp-main{gap:8px;}
+.pp.pp-measure .pp-group{padding:0;} .pp.pp-measure .pp-gh{padding:5px 12px;} .pp.pp-measure .pp-gh h3{font-size:10.5pt;} .pp.pp-measure .pp-gh span{font-size:8pt;}
+.pp.pp-measure .pp-row{padding:4px 12px;gap:2px 10px;flex-wrap:nowrap;break-inside:avoid;} .pp.pp-measure .pp-name{flex:1 1 auto;} .pp.pp-measure .pp-name b{font-size:9pt;} .pp.pp-measure .pp-name small{font-size:7.5pt;}
+.pp.pp-measure .pp-date{flex:0 0 78px;font-size:8pt;} .pp.pp-measure .pp-pill{font-size:7.5pt;padding:2px 8px;min-width:96px;flex:0 0 auto;white-space:nowrap;} .pp.pp-measure .pp-row .pp-pill{flex:0 0 118px;min-width:118px;box-sizing:border-box;}
+@media print{
+.pp{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+.pp .pp-switch,.pp .pp-hero .btn-ghost,.pp .pp-papers,.pp .pp-docs,.pp .pp-hint,.pp .pp-side,.pp .pp-row .pp-date small{display:none !important;}
+.pp .pp-hero{padding:10px 14px;border-radius:8px;gap:4px;} .pp .pp-hero h2{font-size:20pt;margin:2px 0;} .pp .pp-sub{font-size:9pt;} .pp .pp-kicker{font-size:8pt;}
+.pp .pp-counters{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;} .pp .pp-c{padding:6px 10px;} .pp .pp-c b{font-size:18pt;} .pp .pp-c span{font-size:8pt;margin-top:2px;padding:2px 8px;} .pp .pp-c small{font-size:8pt;margin-top:2px;}
+.pp .pp{gap:8px;} .pp .pp-box{padding:8px 12px;border-radius:8px;} .pp .pp-box h3{font-size:11pt;}
+.pp .pp-urgent{padding:5px 10px;margin-top:4px;gap:8px;} .pp .pp-urgent b{font-size:9pt;} .pp .pp-urgent small{font-size:8pt;}
+.pp .pp-cols{display:block;} .pp .pp-main{gap:8px;}
+.pp .pp-group{padding:0;} .pp .pp-gh{padding:5px 12px;} .pp .pp-gh h3{font-size:10.5pt;} .pp .pp-gh span{font-size:8pt;}
+.pp .pp-row{padding:4px 12px;gap:2px 10px;flex-wrap:nowrap;break-inside:avoid;} .pp .pp-name{flex:1 1 auto;} .pp .pp-name b{font-size:9pt;} .pp .pp-name small{font-size:7.5pt;}
+.pp .pp-date{flex:0 0 78px;font-size:8pt;} .pp .pp-pill{font-size:7.5pt;padding:2px 8px;min-width:96px;flex:0 0 auto;white-space:nowrap;} .pp .pp-row .pp-pill{flex:0 0 118px;min-width:118px;box-sizing:border-box;}
+}
