@@ -62,7 +62,7 @@ function DoneModal({ t, onClose, onDone }) {
 // ── Main page ────────────────────────────────────────────────────────
 export default function Tasks() {
   const { tasks, me, isOwner, profiles } = useData();
-  const [view, setView] = useState("list");
+  const [view, setView] = useState("desk");
   const [quick, setQuick] = useState("active");
   const [person, setPerson] = useState("");
   const [firm, setFirm] = useState("");
@@ -138,12 +138,15 @@ export default function Tasks() {
       </div>
 
       <div className="tk-views">
-        {[["list", "📋 List"], ["board", "🗂️ Board"], ...(isOwner ? [["team", "👥 Team"]] : [])].map(([k, l]) => (
+        {[["desk", "🧭 My desk & people"], ["list", "📋 List"], ["board", "🗂️ Board"], ...(isOwner ? [["team", "👥 Team"]] : [])].map(([k, l]) => (
           <button key={k} className={view === k ? "on" : ""} onClick={() => setView(k)}>{l}</button>
         ))}
       </div>
 
-      {view === "team" && isOwner ? (
+      {view === "desk" ? (
+        <Desk live={live} people={people} cardProps={cardProps} onOpen={(id) => setDetail(id)} onReload={tasks.reload}
+          onPick={(id) => { setPerson(id); setQuick("active"); setView("list"); }} />
+      ) : view === "team" && isOwner ? (
         <Team people={people} live={live} onPick={(id) => { setPerson(id); setQuick("active"); setView("list"); }} onOpen={(id) => setDetail(id)} />
       ) : (
         <>
@@ -430,6 +433,131 @@ function TaskDetail({ t, onClose, onEdit, onStatus }) {
         </div>
       </div>
     </Modal>
+  );
+}
+
+// ── My desk & people ─────────────────────────────────────────────────
+const nameOf = (profiles, t) => profiles.rows.find((p) => p.id === t.assignee_id)?.full_name || t.assignee_name || "No one";
+function Desk({ live, people, cardProps, onOpen, onReload, onPick }) {
+  const { me, isOwner, profiles } = useData();
+  const [sort, setSort] = useState("attention");
+  const [openKey, setOpenKey] = useState(null);
+  const [busy, setBusy] = useState("");
+  const late = (t) => t.due_date && daysUntil(t.due_date) < 0;
+  const today = (t) => t.due_date && daysUntil(t.due_date) === 0;
+  const active = live.filter((t) => t.status !== "Done");
+
+  // ── left lane: my own tasks
+  const mine = active.filter((t) => isMine(t, me) || isHelper(t, me)).sort(byDue);
+  const mineGroups = [
+    ["🔴 Overdue", mine.filter(late), "over"],
+    ["🟠 Today", mine.filter(today), "today"],
+    ["🟡 Next 7 days", mine.filter((t) => t.due_date && daysUntil(t.due_date) > 0 && daysUntil(t.due_date) <= 7), "week"],
+    ["🔵 Later", mine.filter((t) => t.due_date && daysUntil(t.due_date) > 7), "later"],
+    ["⚪ No date", mine.filter((t) => !t.due_date), "nodate"],
+  ];
+  // tasks I gave to others that are due today or late
+  const waiting = active.filter((t) => t.created_by === me.id && !isMine(t, me) && t.due_date && daysUntil(t.due_date) <= 0).sort(byDue);
+
+  // ── right lane: everyone else
+  const others = active.filter((t) => !isMine(t, me));
+  const byPerson = new Map();
+  for (const t of others) {
+    const key = t.assignee_id || `name:${t.assignee_name || "?"}`;
+    if (!byPerson.has(key)) byPerson.set(key, { key, id: t.assignee_id || null, name: nameOf(profiles, t), tasks: [] });
+    byPerson.get(key).tasks.push(t);
+  }
+  const weekAgo = Date.now() - 7 * 86400000;
+  const doneWeek = new Map();
+  for (const t of live) if (t.status === "Done" && t.completed_at && new Date(t.completed_at).getTime() >= weekAgo) doneWeek.set(nameOf(profiles, t), (doneWeek.get(nameOf(profiles, t)) || 0) + 1);
+
+  const rows = [...byPerson.values()].map((r) => {
+    const tasks = [...r.tasks].sort(byDue);
+    const seen = new Map(); let dup = 0;
+    for (const t of tasks) { const k = `${(t.title || "").trim().toLowerCase()}|${t.due_date || ""}`; if (seen.has(k)) dup++; seen.set(k, 1); }
+    return { ...r, tasks, open: tasks.length, over: tasks.filter(late).length, due0: tasks.filter(today).length, next: tasks[0], dup };
+  });
+  const maxOpen = Math.max(1, ...rows.map((r) => r.open));
+  rows.sort((a, b) => sort === "name" ? a.name.localeCompare(b.name) : sort === "workload" ? b.open - a.open
+    : (b.over * 10 + b.due0) - (a.over * 10 + a.due0) || b.open - a.open);
+
+  const remind = async (r) => {
+    setBusy(r.key);
+    const res = await run(supabase.rpc("hub_task_remind", { p_user: r.id }), `Reminder sent to ${r.name}`);
+    setBusy(""); if (res.ok) onReload();
+  };
+  const nOver = mine.filter(late).length, nToday = mine.filter(today).length, nWeek = mine.filter((t) => t.due_date && daysUntil(t.due_date) > 0 && daysUntil(t.due_date) <= 7).length;
+
+  return (
+    <div className="dk">
+      <div className="dk-lane dk-me">
+        <h2>My desk</h2>
+        <div className="dk-sub">{mine.length === 0 ? "Nothing waiting for you. 🎉" : <>You have <b>{mine.length} open task{mine.length === 1 ? "" : "s"}</b>.</>}</div>
+        <div className="dk-counters">
+          <div className={nOver ? "red" : ""}><b>{nOver}</b><span>Overdue</span></div>
+          <div className={nToday ? "amber" : ""}><b>{nToday}</b><span>Due today</span></div>
+          <div><b>{nWeek}</b><span>Next 7 days</span></div>
+        </div>
+        {mineGroups.map(([label, list, cls]) => list.length > 0 && (
+          <div key={cls} className={`tk-group ${cls}`}>
+            <div className="tk-group-h">{label} <span>{list.length}</span></div>
+            {list.map((t) => <TaskCard key={t.id} {...cardProps(t)} />)}
+          </div>
+        ))}
+        <div className="dk-wait">
+          <h3>Waiting on others</h3>
+          {waiting.length === 0
+            ? <small>Tasks you gave that are due today or late will show here.</small>
+            : waiting.map((t) => (
+              <div key={t.id} className="dk-wait-row" onClick={() => onOpen(t.id)}>
+                <Avatar name={nameOf(profiles, t)} size={30} />
+                <div><b>{t.title}</b><small>{nameOf(profiles, t)} · {dueLabel(t.due_date).text}</small></div>
+              </div>))}
+        </div>
+      </div>
+
+      <div className="dk-lane dk-people">
+        <div className="dk-head">
+          <div>
+            <h2>{isOwner ? "Tasks given to people" : "Tasks I can see for others"}</h2>
+            <div className="dk-sub">Needs attention first. Tap a name to see their tasks.</div>
+          </div>
+          <div className="dk-sort chk-noprint">
+            <span>Sort by</span>
+            {[["attention", "Needs attention"], ["name", "Name"], ["workload", "Workload"]].map(([k, l]) => <button key={k} className={sort === k ? "on" : ""} onClick={() => setSort(k)}>{l}</button>)}
+          </div>
+        </div>
+        {rows.length === 0 && <Empty>No one else has open tasks right now.</Empty>}
+        {rows.map((r) => (
+          <div key={r.key} className={`dk-person ${r.over ? "has-over" : r.due0 ? "has-today" : ""}`}>
+            <div className="dk-prow">
+              <button className="dk-pname" onClick={() => setOpenKey(openKey === r.key ? null : r.key)} aria-expanded={openKey === r.key}>
+                <Avatar name={r.name} size={52} />
+                <span>
+                  <b>{r.name}</b>
+                  <i className="dk-bar"><em style={{ width: `${(100 * r.open) / maxOpen}%`, background: r.over ? "#d92d20" : r.due0 ? "#f79009" : "#12b76a" }} /></i>
+                  {r.dup > 0 && <small className="dk-dup">⚠ {r.dup} task{r.dup === 1 ? "" : "s"} look{r.dup === 1 ? "s" : ""} like a copy</small>}
+                </span>
+              </button>
+              <div className="dk-num"><b>{r.open}</b><span>Open</span></div>
+              <div className={`dk-num ${r.due0 ? "amber" : ""}`}><b>{r.due0}</b><span>Today</span></div>
+              <div className={`dk-num ${r.over ? "red" : ""}`}><b>{r.over}</b><span>Overdue</span></div>
+              <div className="dk-next"><small>Next due</small><b>{r.next?.title}</b><span>{r.next?.due_date ? dueLabel(r.next.due_date).text : "No date"}</span></div>
+              <div className="dk-acts chk-noprint">
+                {r.id && (r.over + r.due0 > 0) && (isOwner || r.tasks.some((t) => t.created_by === me.id)) &&
+                  <button className="btn-ghost" disabled={busy === r.key} onClick={() => remind(r)}>{busy === r.key ? "Sending…" : "🔔 Send reminder"}</button>}
+                {r.id && <button className="link-btn" onClick={() => onPick(r.id)}>See in list →</button>}
+              </div>
+            </div>
+            {openKey === r.key && <div className="dk-ptasks">{r.tasks.map((t) => <TaskCard key={t.id} {...cardProps(t)} />)}</div>}
+          </div>
+        ))}
+        <div className="dk-done">
+          <b>Finished in the last 7 days</b>
+          {doneWeek.size === 0 ? <span>No one yet</span> : [...doneWeek.entries()].map(([n, c]) => <span key={n}>{n}: {c} task{c === 1 ? "" : "s"}</span>)}
+        </div>
+      </div>
+    </div>
   );
 }
 
