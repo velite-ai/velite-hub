@@ -355,9 +355,12 @@ function TaskDetail({ t, onClose, onEdit, onStatus }) {
   const toggle = (i) => saveField({ checklist: t.checklist.map((x, j) => (j === i ? { ...x, done: !x.done } : x)) });
   const addStep = () => { if (!step.trim()) return; saveField({ checklist: [...(t.checklist || []), { text: step.trim(), done: false }] }); setStep(""); };
   const upload = async (e) => {
-    const file = e.target.files?.[0]; if (!file) return;
-    setBusy(true); const r = await uploadProof(file, `tasks/${t.id}`); setBusy(false);
-    if (r) saveField({ files: [...(t.files || []), { path: r.path, name: r.name, by: me.full_name, at: new Date().toISOString() }] }, "File attached");
+    const picked = [...(e.target.files || [])]; e.target.value = ""; if (!picked.length) return;
+    setBusy(true);
+    const added = [];
+    for (const file of picked) { const r = await uploadProof(file, `tasks/${t.id}`); if (r) added.push({ path: r.path, name: r.name, by: me.full_name, at: new Date().toISOString() }); }
+    setBusy(false);
+    if (added.length) saveField({ files: [...(t.files || []), ...added] }, added.length > 1 ? `${added.length} files attached` : "File attached");
   };
   const removeFile = (i) => window.confirm("Remove this file from the task?") && saveField({ files: t.files.filter((_, j) => j !== i) });
   const cp = checkProgress(t);
@@ -404,7 +407,7 @@ function TaskDetail({ t, onClose, onEdit, onStatus }) {
             {(t.files || []).map((f, i) => (
               <div key={i} className="tk-file"><button className="link-btn" onClick={() => openProof(f.path)}>📄 {f.name}</button><small>{f.by}</small>{(isOwner || f.by === me.full_name) && <button className="link-btn doc-del" onClick={() => removeFile(i)}>✕</button>}</div>
             ))}
-            {may && <label className="tk-upload">{busy ? "Uploading…" : "＋ Attach a file (max 15 MB)"}<input type="file" hidden onChange={upload} disabled={busy} /></label>}
+            {may && <label className="tk-upload">{busy ? "Uploading…" : "＋ Attach photos or PDFs (max 15 MB each)"}<input type="file" hidden multiple accept="image/*,application/pdf" onChange={upload} disabled={busy} /></label>}
           </div>
         </div>
 
@@ -443,7 +446,16 @@ export function TaskModal({ task, onClose, onSaved, preset }) {
     repeat: task?.repeat || "", checklist: (task?.checklist || []).map((x) => x.text).join("\n"),
   }));
   const [busy, setBusy] = useState(false);
+  const [files, setFiles] = useState([]);   // photos / PDFs attached while creating a new task
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
+  const attach = async (e) => {
+    const picked = [...(e.target.files || [])]; e.target.value = ""; if (!picked.length) return;
+    setBusy(true);
+    const added = [];
+    for (const file of picked) { const r = await uploadProof(file, `tasks/new/${me.id}`); if (r) added.push({ path: r.path, name: r.name, by: me.full_name, at: new Date().toISOString() }); }
+    setBusy(false);
+    if (added.length) setFiles((x) => [...x, ...added]);
+  };
   const legacyName = task && !task.assignee_id && task.assignee_name;
   const toggleHelper = (id) => setF((x) => ({ ...x, helpers: x.helpers.includes(id) ? x.helpers.filter((h) => h !== id) : [...x.helpers, id] }));
 
@@ -458,6 +470,7 @@ export function TaskModal({ task, onClose, onSaved, preset }) {
       title: f.title.trim(), description: f.description, department: f.department, priority: f.priority,
       status: f.status, due_date: f.due_date || null, firm_id: f.firm_id || null, repeat: f.repeat || null, checklist,
       ...(preset?.goal_id && !task ? { goal_id: preset.goal_id, milestone_id: preset.milestone_id || null } : {}),
+      ...(!task && files.length ? { files } : {}),
     };
     setBusy(true);
     let r;
@@ -512,6 +525,14 @@ export function TaskModal({ task, onClose, onSaved, preset }) {
       </div>
       {f.repeat && <div className="form-hint" style={{ marginTop: -6, marginBottom: 8 }}>When this task is marked Done, the next one is created by itself with the next due date.</div>}
       <Field label="Checklist steps (optional — one per line)"><textarea className="form-inp" rows={3} value={f.checklist} onChange={set("checklist")} placeholder={"Collect approval 1\nCollect approval 2\nFile in QA"} /></Field>
+      {!task && (
+        <Field label="Photos or PDFs (optional, max 15 MB each)" hint="On a phone you can take a photo or choose from the gallery. You can add more later from the task itself.">
+          <input type="file" multiple accept="image/*,application/pdf" onChange={attach} disabled={busy} />
+          {files.map((x, i) => (
+            <div key={x.path} className="tk-file"><span>📄 {x.name}</span><button type="button" className="link-btn doc-del" onClick={() => setFiles((l) => l.filter((_, j) => j !== i))}>✕</button></div>
+          ))}
+        </Field>
+      )}
     </Modal>
   );
 }
