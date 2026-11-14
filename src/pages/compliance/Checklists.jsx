@@ -195,6 +195,7 @@ function PointList({ firm, points, amap, dept, tag, onBack, onOpenItem }) {
                 <div className="chk-why">💡 {p.why}</div>
                 <div className="chk-law">{p.law}{p.evidence ? ` · Proof to keep: ${p.evidence}` : ""}</div>
                 {p.lic && <LicLine firm={firm} code={p.lic} onOpen={() => setAns({ point: p, mode: "yes" })} />}
+                <PointPapers firm={firm} point={p} />
                 {a && (
                   <div className="chk-ans">
                     {old && <span className="chk-tag redo">🔄 Re-check needed{a.stale_reason ? `: ${a.stale_reason}` : ""} — last answer was {a.answer === "yes" ? "Yes" : a.answer === "na" ? "Not applicable" : "No"}</span>}
@@ -295,6 +296,35 @@ function LicLine({ firm, code, onOpen }) {
   if (!rows.length) return <div className="chk-lic none">📜 Not yet in the Licence register — <button className="link-btn" onClick={onOpen}>add it</button></div>;
   return <div className="chk-lic">{rows.map((l) => { const n = docsOf(d.cmpDocs.rows, "licence", l.id).length; return (
     <span key={l.id}>📜 <b>{l.title}</b>{l.number ? ` · ${l.number}` : ""} · {n} paper{n === 1 ? "" : "s"}{l.next_due ? ` · next due ${fmtDate(l.next_due)}` : ""} <button className="link-btn" onClick={onOpen}>view papers</button></span>); })}</div>;
+}
+
+// Papers on file for a point, shown whether or not the point has been answered yet.
+// Licence points list the papers of their Licence register entries; other points list their own "more papers".
+function PointPapers({ firm, point }) {
+  const d = useData();
+  const groups = point.lic
+    ? d.cmpLic.rows.filter((l) => !l.deleted_at && l.firm_id === firm.id && l.code === point.lic).map((l) => ({ label: l.title, docs: docsOf(d.cmpDocs.rows, "licence", l.id) }))
+    : [{ label: null, docs: docsOf(d.cmpDocs.rows, "check", `${firm.id}|${point.code}`) }];
+  const total = groups.reduce((n, g) => n + g.docs.length, 0);
+  if (!total) return null;
+  const period = (x) => (x.valid_from || x.valid_till ? `valid ${x.valid_from ? fmtDate(x.valid_from) : "…"} → ${x.valid_till ? fmtDate(x.valid_till) : "…"}` : "");
+  return (
+    <details className="chk-papers chk-noprint" open>
+      <summary>📂 {total} paper{total === 1 ? "" : "s"} on file</summary>
+      {groups.map((g, gi) => g.docs.length > 0 && (
+        <div key={gi}>
+          {g.label && <div className="small-muted"><b>{g.label}</b></div>}
+          <ul className="doc-list">{g.docs.map((x) => (
+            <li key={x.id}>
+              <div className="doc-main"><b>{x.kind}</b>{x.doc_no && <> · {x.doc_no}</>}{period(x) && <span className="small-muted"> · {period(x)}</span>}</div>
+              <div className="doc-acts">
+                {x.file_path && <button className="link-btn" onClick={() => openProof(x.file_path)}>📎 Open</button>}
+                {x.link && <a href={x.link} target="_blank" rel="noreferrer">Link ↗</a>}
+              </div>
+            </li>))}</ul>
+        </div>))}
+    </details>
+  );
 }
 
 function LicPanel({ firm, code }) {
