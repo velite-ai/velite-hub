@@ -13,9 +13,10 @@ import Licences from "./compliance/Licences";
 import Library from "./compliance/Library";
 import Firms from "./compliance/Firms";
 import Checklists from "./compliance/Checklists";
+import Passport from "./compliance/Passport";
 
 const VIEWS = [
-  ["dash", "📊 Dashboard"], ["chk", "✅ Checklists"], ["due", "📋 Due list"], ["cal", "🗓️ Calendar"], ["lic", "📜 Licences"], ["lib", "📚 Library"], ["firms", "⚙️ Settings & emails", true],
+  ["dash", "📊 Dashboard"], ["chk", "✅ Checklists"], ["due", "📋 Due list"], ["cal", "🗓️ Calendar"], ["lic", "📜 Licences"], ["pass", "🛂 Firm passport"], ["lib", "📚 Library"], ["firms", "⚙️ Settings & emails", true],
 ];
 const BLANK = { firm: "all", dept: "all", show: "open", mine: false, q: "" };
 
@@ -51,6 +52,7 @@ export default function Compliance() {
         {view === "due" && <DueList filter={filter} setFilter={setFilter} onOpen={setOpen} />}
         {view === "cal" && <Calendar onOpen={setOpen} />}
         {view === "lic" && <Licences />}
+        {view === "pass" && <Passport />}
         {view === "lib" && <Library />}
         {view === "firms" && d.isOwner && <Firms />}
       </>}
