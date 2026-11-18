@@ -32,9 +32,9 @@ export function stat(points, amap, firmId) {
   return { t, ok, no, noH, redo, todo: t - ok - no, pct: t ? Math.round((100 * ok) / t) : 0, tone };
 }
 
-export default function Checklists({ onOpenItem }) {
+export default function Checklists({ onOpenItem, start }) {
   const d = useData();
-  const [sel, setSel] = useState(null); // {firm, dept} or {firm, tag}
+  const [sel, setSel] = useState(start || null); // {firm, dept} or {firm, tag}
   const [inspFirm, setInspFirm] = useState("");
   const firms = d.cmpFirms.rows;
   const points = useMemo(() => d.chkPoints.rows.filter((p) => p.active), [d.chkPoints.rows]);

@@ -8,9 +8,9 @@ import { applicability, uploadProof, openProof, FirmBadge } from "./common";
 import DocChain, { docsOf } from "./DocChain";
 import DriveImport from "./DriveImport";
 
-export default function Licences() {
+export default function Licences({ openId }) {
   const d = useData();
-  const [edit, setEdit] = useState(null);
+  const [edit, setEdit] = useState(() => (openId ? d.cmpLic.rows.find((l) => l.id === openId) || null : null));
   const [firm, setFirm] = useState("all");
   const rows = d.cmpLic.rows.filter((l) => !l.deleted_at && (firm === "all" || l.firm_id === firm))
     .sort((a, b) => (a.next_due || "9999") < (b.next_due || "9999") ? -1 : 1);
