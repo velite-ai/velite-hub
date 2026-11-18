@@ -874,3 +874,6 @@ button:disabled{opacity:0.6;cursor:default;}
 .cs-row:hover{background:#f9fafb;} .cs-row b{font-size:15px;} .cs-row small{color:#475467;font-size:13px;flex:1 1 220px;}
 .cs-pt{cursor:default;} .cs-pt:hover{background:none;} .cs-q{flex:1 1 320px;font-size:14px;} .cs-q small{display:block;} .cs-firms{display:flex;gap:6px;} .cs-fbtn{background:none;border:0;padding:4px;min-height:44px;cursor:pointer;}
 .cs-more{font-size:13px;color:#475467;padding:6px 4px;}
+
+/* Page-level search box (Tasks, Materials) */
+.pg-search{display:flex;gap:8px;align-items:center;margin:0 0 14px;} .pg-search .search-inp{flex:1;min-height:46px;font-size:15px;padding:0 14px;border-radius:12px;width:100%;}

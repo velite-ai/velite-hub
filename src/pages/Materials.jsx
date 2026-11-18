@@ -100,6 +100,9 @@ export default function Materials() {
     if (r.ok) { toast(r.data?.po_raised || r.data?.arrived ? `Updated: ${r.data.po_raised} PO raised, ${r.data.arrived} arrived` : "Up to date with purchase.velite.in"); materials.reload(); }
   };
 
+  const sq = q.trim().toLowerCase();
+  const found = useMemo(() => !sq ? [] : all.filter((m) => [m.name, m.supplier, m.po_number, m.notes, m.created_by_name, m.for_product].join(" ").toLowerCase().includes(sq))
+    .sort((a, b) => (a.status === "received") - (b.status === "received") || (a.status === "received" ? ((a.received_at || "") < (b.received_at || "") ? 1 : -1) : sortOpen(a, b))).slice(0, 200), [all, sq]); // eslint-disable-line
   const rowProps = (m) => ({
     m, pv: pvItems[m.pv_item_id], price: pvPrices[m.pv_item_id],
     onOrder: () => setOrdering(m), onReceive: () => setStatus(m, "received"),
@@ -126,6 +129,12 @@ export default function Materials() {
         </div>
       </div>
 
+      {view !== "insights" && (
+        <div className="pg-search chk-noprint">
+          <SearchBox value={q} onChange={setQ} placeholder="🔎 Search all materials: item, supplier, PO number, product, who asked…" />
+          {q && <button className="btn-ghost" onClick={() => setQ("")}>Clear</button>}
+        </div>
+      )}
       <div className="mt-kpis">
         <button className={`mt-kpi amber ${stage === "pending" ? "on" : ""}`} onClick={() => setStage("pending")}><b>{stats.waiting.length}</b><span>Waiting for PO</span>{oldest > 0 && <small>oldest {oldest} day{oldest === 1 ? "" : "s"}</small>}</button>
         <button className={`mt-kpi blue ${stage === "ordered" ? "on" : ""}`} onClick={() => setStage("ordered")}><b>{stats.raised.length}</b><span>PO raised, not arrived</span></button>
@@ -156,10 +165,15 @@ export default function Materials() {
             <select className="inp inp-filter" value={firm} onChange={(e) => setFirm(e.target.value)}><option value="">All firms</option>{FIRMS.map((f) => <option key={f}>{f}</option>)}</select>
             <div style={{ flex: 1 }} />
             <button className="btn-ghost" onClick={() => exportCsv(shown)}>⬇ Excel</button>
-            <SearchBox value={q} onChange={setQ} placeholder="Search item, supplier, PO…" />
           </div>
 
-          {view === "board" ? (
+          {sq ? (
+            <div className="mt-list">
+              <div className="small-muted" style={{ margin: "4px 0 8px" }}>{found.length} result{found.length === 1 ? "" : "s"} for “{q.trim()}” in all lists and all stages (open first, then arrived).</div>
+              {found.length === 0 && <Empty>Nothing found. Try a shorter word or a PO number.</Empty>}
+              {found.map((m) => <MaterialCard key={m.id} {...rowProps(m)} />)}
+            </div>
+          ) : view === "board" ? (
             <div className="mt-board">
               {["pending", "ordered", "received"].map((s) => {
                 const items = (stage === "received" || stage === "open" ? live : shown).filter((m) => m.status === s)

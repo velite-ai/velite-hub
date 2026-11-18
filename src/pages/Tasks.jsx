@@ -137,6 +137,12 @@ export default function Tasks() {
         <button className="tk-add" onClick={() => setModal({})}>＋ New task</button>
       </div>
 
+      {view !== "team" && (
+        <div className="pg-search chk-noprint">
+          <SearchBox value={q} onChange={setQ} placeholder="🔎 Search tasks: title, details, person, department…" />
+          {q && <button className="btn-ghost" onClick={() => setQ("")}>Clear</button>}
+        </div>
+      )}
       <div className="tk-views">
         {[["desk", "🧭 My desk & people"], ["list", "📋 List"], ["board", "🗂️ Board"], ...(isOwner ? [["team", "👥 Team"]] : [])].map(([k, l]) => (
           <button key={k} className={view === k ? "on" : ""} onClick={() => setView(k)}>{l}</button>
@@ -144,7 +150,7 @@ export default function Tasks() {
       </div>
 
       {view === "desk" ? (
-        <Desk live={live} people={people} cardProps={cardProps} onOpen={(id) => setDetail(id)} onReload={tasks.reload}
+        <Desk q={q} live={live} people={people} cardProps={cardProps} onOpen={(id) => setDetail(id)} onReload={tasks.reload}
           onPick={(id) => { setPerson(id); setQuick("active"); setView("list"); }} />
       ) : view === "team" && isOwner ? (
         <Team people={people} live={live} onPick={(id) => { setPerson(id); setQuick("active"); setView("list"); }} onOpen={(id) => setDetail(id)} />
@@ -162,8 +168,6 @@ export default function Tasks() {
             <select className="inp inp-filter" value={firm} onChange={(e) => setFirm(e.target.value)}><option value="">All firms</option>{FIRMS.map((f) => <option key={f}>{f}</option>)}</select>
             <select className="inp inp-filter" value={dept} onChange={(e) => setDept(e.target.value)}><option value="">All departments</option>{DEPARTMENTS.map((d) => <option key={d}>{d}</option>)}</select>
             <select className="inp inp-filter" value={pri} onChange={(e) => setPri(e.target.value)}><option value="">All priorities</option>{PRIORITIES.map((d) => <option key={d}>{d}</option>)}</select>
-            <div style={{ flex: 1 }} />
-            <SearchBox value={q} onChange={setQ} placeholder="Search tasks…" />
           </div>
 
           {view === "list" && (
@@ -438,14 +442,17 @@ function TaskDetail({ t, onClose, onEdit, onStatus }) {
 
 // ── My desk & people ─────────────────────────────────────────────────
 const nameOf = (profiles, t) => profiles.rows.find((p) => p.id === t.assignee_id)?.full_name || t.assignee_name || "No one";
-function Desk({ live, people, cardProps, onOpen, onReload, onPick }) {
+function Desk({ q, live, people, cardProps, onOpen, onReload, onPick }) {
   const { me, isOwner, profiles } = useData();
   const [sort, setSort] = useState("attention");
   const [openKey, setOpenKey] = useState(null);
   const [busy, setBusy] = useState("");
   const late = (t) => t.due_date && daysUntil(t.due_date) < 0;
   const today = (t) => t.due_date && daysUntil(t.due_date) === 0;
-  const active = live.filter((t) => t.status !== "Done");
+  const s = (q || "").trim().toLowerCase();
+  const hit = (t) => !s || [t.title, t.description, t.department, t.created_by_name, nameOf(profiles, t)].join(" ").toLowerCase().includes(s);
+  const active = live.filter((t) => t.status !== "Done" && hit(t));
+  const doneHits = s ? live.filter((t) => t.status === "Done" && hit(t)).sort((a, b) => ((a.completed_at || "") < (b.completed_at || "") ? 1 : -1)).slice(0, 10) : [];
 
   // ── left lane: my own tasks
   const mine = active.filter((t) => isMine(t, me) || isHelper(t, me)).sort(byDue);
@@ -527,7 +534,8 @@ function Desk({ live, people, cardProps, onOpen, onReload, onPick }) {
             {[["attention", "Needs attention"], ["name", "Name"], ["workload", "Workload"]].map(([k, l]) => <button key={k} className={sort === k ? "on" : ""} onClick={() => setSort(k)}>{l}</button>)}
           </div>
         </div>
-        {rows.length === 0 && <Empty>No one else has open tasks right now.</Empty>}
+        {s && <div className="dk-sub" style={{ marginTop: -6 }}>Showing only tasks matching “{q.trim()}”.</div>}
+        {rows.length === 0 && <Empty>{s ? "No other person has an open task matching this." : "No one else has open tasks right now."}</Empty>}
         {rows.map((r) => (
           <div key={r.key} className={`dk-person ${r.over ? "has-over" : r.due0 ? "has-today" : ""}`}>
             <div className="dk-prow">
@@ -552,6 +560,12 @@ function Desk({ live, people, cardProps, onOpen, onReload, onPick }) {
             {openKey === r.key && <div className="dk-ptasks">{r.tasks.map((t) => <TaskCard key={t.id} {...cardProps(t)} />)}</div>}
           </div>
         ))}
+        {doneHits.length > 0 && (
+          <div className="dk-ptasks" style={{ borderRadius: 14, border: "1px solid #eaecf0" }}>
+            <b>Completed tasks matching “{q.trim()}”</b>
+            {doneHits.map((t) => <TaskCard key={t.id} archived {...cardProps(t)} />)}
+          </div>
+        )}
         <div className="dk-done">
           <b>Finished in the last 7 days</b>
           {doneWeek.size === 0 ? <span>No one yet</span> : [...doneWeek.entries()].map(([n, c]) => <span key={n}>{n}: {c} task{c === 1 ? "" : "s"}</span>)}
