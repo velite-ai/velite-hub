@@ -14,6 +14,7 @@ import Library from "./compliance/Library";
 import Firms from "./compliance/Firms";
 import Checklists from "./compliance/Checklists";
 import Passport from "./compliance/Passport";
+import CompSearch from "./compliance/CompSearch";
 
 const VIEWS = [
   ["dash", "📊 Dashboard"], ["chk", "✅ Checklists"], ["due", "📋 Due list"], ["cal", "🗓️ Calendar"], ["lic", "📜 Licences"], ["pass", "🛂 Firm passport"], ["lib", "📚 Library"], ["firms", "⚙️ Settings & emails", true],
@@ -26,6 +27,8 @@ export default function Compliance() {
   const [filter, setFilter] = useState(BLANK);
   const [open, setOpen] = useState(null);
   const [adding, setAdding] = useState(false);
+  const [openLic, setOpenLic] = useState(null);   // {id, n}: open a licence from search
+  const [chkStart, setChkStart] = useState(null);  // {firm, dept, n}: open a checklist from search
   const loading = d.cmpItems.loading || d.cmpLib.loading || d.cmpFirms.loading;
   const goDue = (patch) => { setFilter({ ...BLANK, ...patch }); setView("due"); };
   const openItem = open && d.cmpItems.rows.find((i) => i.id === open.id);
@@ -43,15 +46,18 @@ export default function Compliance() {
           {d.isOwner && <button className="cmp-btn-light" onClick={async () => { await regenerate(); d.cmpItems.reload(); }}>↻ Refresh due dates</button>}
         </div>
       </div>
+      <CompSearch onOpenItem={setOpen}
+        onOpenLicence={(id) => { setOpenLic({ id, n: Date.now() }); setView("lic"); }}
+        onOpenChecklist={(sel) => { setChkStart({ ...sel, n: Date.now() }); setView("chk"); }} />
       <div className="cmp-tabs">
         {VIEWS.filter((v) => !v[2] || d.isOwner).map(([k, l]) => <button key={k} className={view === k ? "on" : ""} onClick={() => setView(k)}>{l}</button>)}
       </div>
       {loading ? <div className="loading">Loading…</div> : <>
         {view === "dash" && <Dashboard goDue={goDue} onOpen={setOpen} goView={setView} />}
-        {view === "chk" && <Checklists onOpenItem={setOpen} />}
+        {view === "chk" && <Checklists key={chkStart ? `c${chkStart.n}` : "c"} start={chkStart && chkStart.dept ? { firm: chkStart.firm, dept: chkStart.dept } : null} onOpenItem={setOpen} />}
         {view === "due" && <DueList filter={filter} setFilter={setFilter} onOpen={setOpen} />}
         {view === "cal" && <Calendar onOpen={setOpen} />}
-        {view === "lic" && <Licences />}
+        {view === "lic" && <Licences key={openLic ? `l${openLic.n}` : "l"} openId={openLic?.id} />}
         {view === "pass" && <Passport />}
         {view === "lib" && <Library />}
         {view === "firms" && d.isOwner && <Firms />}
