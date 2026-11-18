@@ -62,7 +62,7 @@ begin
   select * into pt from public.hub_chk_points where code = p_code;
   if pt.code is null then raise exception 'Unknown checklist point'; end if;
   p_note := nullif(trim(coalesce(p_note,'')),''); p_ref := nullif(trim(coalesce(p_ref,'')),''); p_link := nullif(trim(coalesce(p_link,'')),'');
-  if p_answer = 'yes' and p_ref is null and p_link is null and p_path is null then raise exception 'Add proof for Yes: a file, a link or a reference number'; end if;
+  if p_answer = 'yes' and p_ref is null and p_link is null and p_path is null and p_note is null then raise exception 'Add proof for Yes: a file, a link, a reference number, or a comment if no document is available'; end if;
   if p_answer = 'na' and p_note is null then raise exception 'Give a reason for Not applicable'; end if;
   if p_answer = 'no' and p_due is null then raise exception 'Give a date by which this will be fixed'; end if;
   if p_answer not in ('yes','no','na') then raise exception 'Bad answer'; end if;

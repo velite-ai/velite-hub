@@ -200,6 +200,7 @@ function PointList({ firm, points, amap, dept, tag, onBack, onOpenItem }) {
                   <div className="chk-ans">
                     {old && <span className="chk-tag redo">🔄 Re-check needed{a.stale_reason ? `: ${a.stale_reason}` : ""} — last answer was {a.answer === "yes" ? "Yes" : a.answer === "na" ? "Not applicable" : "No"}</span>}
                     {e === "yes" && <span className="chk-tag yes">✅ Yes</span>}
+                    {e === "yes" && !a.ref_no && !a.proof_link && !a.proof_path && <span className="chk-tag redo" title="Answered Yes with a comment, no document on file">💬 Comment only, no document</span>}
                     {e === "na" && <span className="chk-tag na">Not applicable</span>}
                     {e === "no" && <span className="chk-tag no">❌ Gap — fix by {fmtDate(a.action_due)}{a.action_owner ? ` · ${personName(d.profiles, a.action_owner)}` : " · no one assigned"}</span>}
                     {a.ref_no && <span>Ref: {a.ref_no}</span>}
@@ -246,14 +247,16 @@ function AnswerModal({ firm, point, mode, prev, people, onClose }) {
   const licRows = point.lic ? d.cmpLic.rows.filter((l) => !l.deleted_at && l.firm_id === firm.id && l.code === point.lic) : [];
   const save = async () => {
     if (mode === "yes" && point.lic) {
-      if (!licRows.length) { toast("First add this licence to the Licence register (box above).", "err"); return; }
       const papers = licRows.reduce((n, l) => n + docsOf(d.cmpDocs.rows, "licence", l.id).length, 0);
-      if (!papers && !licRows.some((l) => l.number)) { toast("Add at least one paper to the licence, or its number.", "err"); return; }
-      f.ref = `Licence register · ${licRows.map((l) => l.number || l.title).join(", ")}`; f.link = ""; f.path = null; f.name = "";
+      const registered = licRows.length > 0 && (papers > 0 || licRows.some((l) => l.number));
+      if (registered) { f.ref = `Licence register · ${licRows.map((l) => l.number || l.title).join(", ")}`; f.link = ""; f.path = null; f.name = ""; }
+      else if (!f.note.trim()) {
+        toast(licRows.length ? "Add at least one paper to the licence, or its number. Or write a comment if no document is available." : "First add this licence to the Licence register (box above). Or write a comment if no document is available.", "err"); return;
+      }
     }
     const extra = docsOf(d.cmpDocs.rows, "check", `${firm.id}|${point.code}`);
     if (mode === "yes" && !f.ref.trim() && !f.link.trim() && !f.path && extra.length) { f.ref = `${extra.length} paper${extra.length === 1 ? "" : "s"} on file`; }
-    if (mode === "yes" && !f.ref.trim() && !f.link.trim() && !f.path) { toast("Add proof for Yes: attach a file, paste a link, or write a reference number.", "err"); return; }
+    if (mode === "yes" && !f.ref.trim() && !f.link.trim() && !f.path && !f.note.trim()) { toast("Add proof for Yes: attach a file, paste a link or write a reference number. If no document is available, write a comment instead.", "err"); return; }
     if (mode === "na" && !f.note.trim()) { toast("Write why it does not apply.", "err"); return; }
     if (mode === "no" && !f.due) { toast("Choose the date by which it will be fixed.", "err"); return; }
     setBusy(true);
@@ -268,13 +271,16 @@ function AnswerModal({ firm, point, mode, prev, people, onClose }) {
   return (
     <Modal title={label} onClose={onClose} actions={<><button className="btn-ghost" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save"}</button></>}>
       <div className="chk-modal-q"><FirmBadge id={firm.id} /> {point.q}</div>
-      {mode === "yes" && point.lic && <LicPanel firm={firm} code={point.lic} />}
+      {mode === "yes" && point.lic && <>
+        <LicPanel firm={firm} code={point.lic} />
+        <Field label="Comment (optional; needed if the licence is not in the register yet)"><textarea className="inp" rows={2} value={f.note} onChange={set("note")} placeholder="e.g. Applied on 10 Nov; the certificate is awaited." /></Field>
+      </>}
       {mode === "yes" && !point.lic && <>
-        <div className="form-hint" style={{ marginBottom: 8 }}>Give any one proof below. Suggested: <b>{point.evidence}</b>. Have older papers too (e.g. past retention certificates)? Add them all under “More papers”.</div>
+        <div className="form-hint" style={{ marginBottom: 8 }}>Give any one proof below. Suggested: <b>{point.evidence}</b>. <b>No document available?</b> Write a comment instead (for example where the record is kept, or who confirmed it). Have older papers too? Add them all under “More papers”.</div>
         <Field label="Attach a file (max 15 MB)"><input type="file" onChange={upload} disabled={busy} />{f.path && <div className="form-hint">📎 {f.name}</div>}</Field>
         <Field label="Or paste a link (Google Drive etc.)"><input className="inp" placeholder="https://…" value={f.link} onChange={set("link")} /></Field>
         <Field label="Or licence / reference number, or where the paper is kept"><input className="inp" value={f.ref} onChange={set("ref")} /></Field>
-        <Field label="Note (optional)"><input className="inp" value={f.note} onChange={set("note")} /></Field>
+        <Field label="Comment (needed if you have no file, link or number)"><textarea className="inp" rows={2} value={f.note} onChange={set("note")} placeholder="e.g. Record is kept in the QA office file; confirmed by the QA head on 18 Nov. No scanned copy yet." /></Field>
         <DocChain firmId={firm.id} type="check" id={`${firm.id}|${point.code}`} folder={`${firm.id}/checklist/${point.code}`} title="More papers for this point (optional — any number)" />
       </>}
       {mode === "no" && <>
