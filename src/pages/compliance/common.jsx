@@ -43,6 +43,8 @@ export const deptStyle = (d) => DEPTS[d] || { icon: "📌", c: "#64748b" };
 export const FIRM_COLORS = { VP: "#2563eb", VH: "#db2777", VI: "#ea580c", VS: "#16a34a" };
 export const firmColor = (id) => FIRM_COLORS[id] || "#475467";
 export const GO_LIVE = "2026-11-08";
+// Old filing backlog from before go-live is kept out of the overdue counts. A licence / certificate that has expired is never backlog.
+export const isBacklog = (i) => i.due_date < GO_LIVE && !i.licence_id;
 
 export function FirmBadge({ id }) {
   return <span className="cmp-fb" style={{ background: firmColor(id) }}>{id}</span>;
