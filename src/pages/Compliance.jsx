@@ -6,7 +6,7 @@ import { Empty, SearchBox, Modal, Field } from "../components/ui";
 import { Pill } from "./ipr/shared";
 import {
   STATUS, isOpen, tone, dueBadge, personName, regenerate, exportCsv, applicability,
-  DEPTS, deptStyle, firmColor, FirmBadge, DeptChip, GO_LIVE, ruleText,
+  DEPTS, deptStyle, firmColor, FirmBadge, DeptChip, GO_LIVE, isBacklog, ruleText,
 } from "./compliance/common";
 import ItemModal from "./compliance/ItemModal";
 import Licences from "./compliance/Licences";
@@ -105,8 +105,8 @@ function Dashboard({ goDue, onOpen, goView }) {
   const items = d.cmpItems.rows.filter((i) => !i.deleted_at);
   const open = items.filter(isOpen);
   const n = (i) => daysUntil(i.due_date);
-  const preLive = open.filter((i) => i.due_date < GO_LIVE);
-  const over = open.filter((i) => n(i) < 0 && i.due_date >= GO_LIVE);
+  const preLive = open.filter(isBacklog);
+  const over = open.filter((i) => n(i) < 0 && !isBacklog(i));
   const wk = open.filter((i) => n(i) >= 0 && n(i) <= 7);
   const mo = open.filter((i) => n(i) >= 0 && n(i) <= 30);
   const toCheck = items.filter((i) => i.status === "filed");
@@ -115,7 +115,7 @@ function Dashboard({ goDue, onOpen, goView }) {
   const depts = Object.keys(DEPTS).filter((x) => d.cmpLib.rows.some((l) => l.dept === x));
 
   // on-time score: items due since go-live (up to today) that were done by the due date
-  const pastDue = items.filter((i) => i.due_date >= GO_LIVE && n(i) < 0 && i.status !== "na");
+  const pastDue = items.filter((i) => !isBacklog(i) && n(i) < 0 && i.status !== "na");
   const onTime = pastDue.filter((i) => (i.status === "filed" || i.status === "verified") && i.filed_on && i.filed_on <= i.due_date).length;
   const score = pastDue.length ? Math.round((onTime / pastDue.length) * 100) : 100;
   const scoreColor = score >= 90 ? "#4ade80" : score >= 70 ? "#fbbf24" : "#f87171";
@@ -203,7 +203,7 @@ function Dashboard({ goDue, onOpen, goView }) {
             <thead><tr><th>Department</th>{firms.map((f) => <th key={f.id} title={f.name}><FirmBadge id={f.id} /></th>)}</tr></thead>
             <tbody>{depts.map((dep) => (
               <tr key={dep}><td><DeptChip dept={dep} /></td>{firms.map((f) => {
-                const mine = open.filter((i) => i.firm_id === f.id && deptOf(i.code) === dep && i.due_date >= GO_LIVE);
+                const mine = open.filter((i) => i.firm_id === f.id && deptOf(i.code) === dep && !isBacklog(i));
                 const o = mine.filter((i) => n(i) < 0).length;
                 const a = mine.filter((i) => n(i) >= 0 && n(i) <= 7).length;
                 const m = mine.filter((i) => n(i) >= 0 && n(i) <= 30).length;
@@ -243,8 +243,8 @@ function DueList({ filter, setFilter, onOpen }) {
     const n = daysUntil(i.due_date);
     switch (filter.show) {
       case "open": if (!isOpen(i)) return false; break;
-      case "prelive": if (!isOpen(i) || i.due_date >= GO_LIVE) return false; break;
-      case "overdue": if (!isOpen(i) || n >= 0 || i.due_date < GO_LIVE) return false; break;
+      case "prelive": if (!isOpen(i) || !isBacklog(i)) return false; break;
+      case "overdue": if (!isOpen(i) || n >= 0 || isBacklog(i)) return false; break;
       case "overdue_all": if (!isOpen(i) || n >= 0) return false; break;
       case "7": if (!isOpen(i) || n > 7) return false; break;
       case "30": if (!isOpen(i) || n > 30) return false; break;
