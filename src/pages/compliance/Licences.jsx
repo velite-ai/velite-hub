@@ -2,7 +2,7 @@ import { useState } from "react";
 import { supabase } from "../../supabase";
 import { useData, run, toast } from "../../lib/data";
 import { Modal, Field, Empty } from "../../components/ui";
-import { fmtDate, dueLabel } from "../../lib/dates";
+import { fmtDate, dueLabel, todayISO } from "../../lib/dates";
 import { Pill } from "../ipr/shared";
 import { applicability, uploadProof, openProof, FirmBadge } from "./common";
 import DocChain, { docsOf } from "./DocChain";
@@ -86,11 +86,54 @@ function LicenceModal({ lic, onClose, onReopen }) {
     const r = await run(supabase.from("hub_cmp_licences").update({ deleted_at: new Date().toISOString() }).eq("id", lic.id), "Removed");
     if (r.ok) { d.cmpLic.reload(); d.cmpItems.reload(); onClose(); }
   };
+  // ── Add revision: record a renewal / new certificate in one step (new dates, optional link), keeping the history in the notes
+  const [rev, setRev] = useState(null);
+  const startRev = () => setRev({ issued_on: todayISO(), valid_till: "", next_due: "", number: f.number || "", link: "", note: "" });
+  const setR = (k) => (e) => setRev((x) => {
+    const v = e.target.value, n = { ...x, [k]: v };
+    if (k === "valid_till" && (!x.next_due || x.next_due === x.valid_till)) n.next_due = v;   // reminder follows the expiry unless set apart
+    return n;
+  });
+  const saveRev = async () => {
+    if (!rev.next_due) { toast("Enter the new expiry / next due date.", "err"); return; }
+    if (rev.next_due <= todayISO()) { toast("The new date must be in the future. If this renewal is already overdue, renew it first.", "err"); return; }
+    if (rev.valid_till && rev.issued_on && rev.valid_till <= rev.issued_on) { toast("Valid till must be after the issue date.", "err"); return; }
+    setBusy(true);
+    const line = `Revision ${todayISO()} by ${d.me?.full_name || "—"}: issued ${rev.issued_on || "—"}, valid till ${rev.valid_till || "perpetual"}, next due ${rev.next_due}${rev.number && rev.number !== f.number ? `, number ${rev.number}` : ""}. Before: valid till ${f.valid_till || "perpetual"}, next due ${f.next_due || "—"}.${rev.note.trim() ? " " + rev.note.trim() : ""}`;
+    const patch = { issued_on: rev.issued_on || null, valid_till: rev.valid_till || null, next_due: rev.next_due, number: rev.number.trim() || null, notes: [f.notes, line].filter(Boolean).join("\n") };
+    const r = await run(supabase.from("hub_cmp_licences").update(patch).eq("id", lic.id), "Revision added — the reminder has moved to the new date");
+    if (r.ok && rev.link.trim()) {
+      await run(supabase.from("hub_cmp_docs").insert({ firm_id: lic.firm_id, parent_type: "licence", parent_id: lic.id, kind: "Renewal", doc_no: rev.number.trim() || null,
+        issued_on: rev.issued_on || null, valid_from: rev.issued_on || null, valid_till: rev.valid_till || null, link: rev.link.trim(), notes: rev.note.trim() || null }));
+      d.cmpDocs.reload();
+    }
+    setBusy(false);
+    if (r.ok) { setF({ ...f, ...patch, issued_on: patch.issued_on || "", valid_till: patch.valid_till || "", number: patch.number || "" }); setRev(null); d.cmpLic.reload(); d.cmpItems.reload(); }
+  };
   return (
     <Modal wide title={isNew ? "Add licence / certificate" : "Edit licence / certificate"} onClose={onClose}
       actions={<>{!isNew && d.isOwner && <button className="btn-danger" onClick={del}>Remove</button>}
+        {!isNew && !rev && <button className="btn-ghost" onClick={startRev}>🔄 Add revision</button>}
         <button className="btn-ghost" onClick={onClose}>Cancel</button>
         <button className="btn-primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save"}</button></>}>
+      {rev && (
+        <div className="doc-chain" style={{ marginBottom: 12 }}>
+          <div className="doc-chain-head"><b>🔄 Add revision (renewal)</b> <span className="small-muted">Current: valid till {f.valid_till ? fmtDate(f.valid_till) : "perpetual"} · next due {f.next_due ? fmtDate(f.next_due) : "not set"}</span></div>
+          <div className="cmp-form">
+            <Field label="New issue date"><input className="inp" type="date" value={rev.issued_on} onChange={setR("issued_on")} /></Field>
+            <Field label="New valid till (expiry)" hint="Leave empty if the licence is perpetual."><input className="inp" type="date" value={rev.valid_till} onChange={setR("valid_till")} /></Field>
+            <Field label="New next due date" hint="The reminder moves to this date. It follows the expiry unless you change it."><input className="inp" type="date" value={rev.next_due} onChange={setR("next_due")} /></Field>
+            <Field label="Number (if changed)"><input className="inp" value={rev.number} onChange={setR("number")} /></Field>
+            <Field label="Link to the new certificate (optional)"><input className="inp" placeholder="https://drive.google.com/…" value={rev.link} onChange={setR("link")} /></Field>
+            <Field label="Note (optional)"><input className="inp" value={rev.note} onChange={setR("note")} placeholder="e.g. renewed for 2 years through the agency" /></Field>
+          </div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <button className="btn-ghost" onClick={() => setRev(null)}>Cancel</button>
+            <button className="btn-primary" disabled={busy} onClick={saveRev}>{busy ? "Saving…" : "Save revision"}</button>
+          </div>
+          <div className="small-muted" style={{ marginTop: 6 }}>You can add the scanned certificate afterwards under "Full chain of papers" below.</div>
+        </div>
+      )}
       <div className="cmp-form">
         <Field label="Firm"><select className="inp" value={f.firm_id} onChange={set("firm_id")}>{d.cmpFirms.rows.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
         <Field label="Which compliance does it renew?" hint="Links the licence to its renewal reminder.">
