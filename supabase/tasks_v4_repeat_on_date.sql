@@ -1,0 +1,11 @@
+-- Repeating tasks: the next copy appears on its own date, not the moment the task is closed (Nov 2026).
+-- Closing a repeating task early only remembers the next date in hub_tasks.repeat_pending; hub_task_daily() (cron 02:25 UTC) creates the
+-- copy that morning. If the next date has already arrived (closed late) the copy is still made at once. Reopening a task, switching the
+-- repeat off or deleting it forgets the waiting date.
+-- Applied to the database as migration "hub_task_repeat_on_date". The three functions it replaces (hub_task_rules, hub_task_notify,
+-- hub_task_daily) are the live ones; read them with pg_get_functiondef if you need the full text.
+alter table public.hub_tasks add column if not exists repeat_pending date;
+-- hub_task_rules:  on a status change away from Done also clear repeat_pending.
+-- hub_task_notify: on Done for a repeating task, nxt = due_date + interval; if nxt <= current_date insert the copy now, else set repeat_pending = nxt.
+-- hub_task_daily:  first loop creates copies for Done repeating tasks with repeat_pending <= current_date (and no copy yet), notifies the assignee,
+--                  clears repeat_pending; then clears stale repeat_pending values; then the existing due / overdue / escalation alerts.
