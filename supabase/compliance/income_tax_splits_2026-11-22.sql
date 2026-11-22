@@ -1,0 +1,7 @@
+-- Income Tax & TDS: four combined questions split (Nov 2026). Applied as migration "hub_chk_income_tax_splits". 9 points became 13.
+-- IT01 income-tax portal login | IT10 (new) TDS (TRACES) portal login
+-- IT02 TDS on contractors, rent, professionals, purchases | IT11 (new) TDS on salary
+-- IT03 cash payments above Rs 10,000 a day avoided | IT12 (new) no cash of Rs 2 lakh or more received
+-- IT07 sales and purchases between the four firms at a fair price | IT13 (new) loans between the four firms documented
+-- None of the original points had been answered, so no answers needed converting.
+-- The source of truth for the points is checks.mjs / checks.json (the order in checks.json is the display order).
