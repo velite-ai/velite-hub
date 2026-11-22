@@ -30,7 +30,7 @@ export const CHECK_DEPTS = [
 ];
 
 // Checklist points that ARE a licence: their papers live only in the Licence register (one place), linked by library code.
-export const CHECK_LIC = { GS08: "FT11", MU08: "LG03", LM01: "LM10", LM04: "LM11", DG01: "DG10", TP01: "TP10", DM01: "RD01", DS01: "RD15", CM01: "RC01", FD01: "FD01", PL02: "EV01", PL05: "EV02", FA01: "FS01", FI01: "FS04",
+export const CHECK_LIC = { GS08: "FT11", MU08: "LG03", MC11: "LG03", LM01: "LM10", LM04: "LM11", DG01: "DG10", TP01: "TP10", DM01: "RD01", DS01: "RD15", CM01: "RC01", FD01: "FD01", PL02: "EV01", PL05: "EV02", FA01: "FS01", FI01: "FS04",
   BO01: "FS06", BO04: "FS09", PS06: "FS07", DM18: "FS11", DM19: "FS10", MU01: "AD07", DG02: "EX02", CD05: "RD12", MC04: "CO08", MU04: "FS14" };
 
 const D = (dept, rows) => rows.map((r) => ({ code: r[0], dept, applies: r[1], risk: r[2], tags: r[3] ? r[3].split(",") : [], q: r[4], why: r[5], law: r[6], evidence: r[7] }));
@@ -221,13 +221,18 @@ export const CHECKS = [
   ...D("MCA / ROC", [
     ["MC01", "company", "M", "", "Are statutory registers kept (members, directors, charges, loans)?", "Asked for by banks, investors and ROC.", "Companies Act 2013 s.88, 170, 85", "Registers"],
     ["MC02", "company", "M", "", "Are board meetings held as required with signed minutes?", "Missing meetings bring a penalty on every director.", "Companies Act 2013 s.173, 118", "Minutes book"],
-    ["MC03", "company", "M", "", "Is the auditor properly appointed and ADT-1 filed?", "Accounts cannot be validly signed otherwise.", "Companies Act 2013 s.139", "ADT-1"],
-    ["MC04", "company", "M", "", "Are director KYC and digital signatures valid?", "A deactivated DIN blocks all filings.", "Companies (Appointment) Rules r.12A", "KYC status"],
+    ["MC03", "company", "M", "", "Is the auditor properly appointed?", "Accounts cannot be validly signed otherwise.", "Companies Act 2013 s.139", "Appointment resolution / minutes"],
+    ["MC10", "company", "M", "", "Is ADT-1 filed with the ROC?", "An appointment not reported on ADT-1 is not complete.", "Companies Act 2013 s.139", "ADT-1 + receipt"],
+    ["MC04", "company", "M", "", "Is director KYC (DIR-3 KYC) done for every director?", "A deactivated DIN blocks all filings.", "Companies (Appointment) Rules r.12A", "KYC status"],
+    ["MC11", "company", "M", "", "Are the directors' digital signatures valid?", "An expired signature stops every ROC filing.", "Companies (Registration Offices and Fees) Rules; IT Act 2000", "DSC expiry list"],
     ["MC05", "company", "L", "", "Do the name board, letterhead and invoices show company name, CIN and registered office?", "Penalty per day of default.", "Companies Act 2013 s.12", "Photo + letterhead"],
-    ["MC06", "company", "M", "", "Are loans from directors and relatives backed by declarations and reported in DPT-3?", "Money from others can be treated as illegal deposits.", "Companies (Acceptance of Deposits) Rules 2014", "Declarations + DPT-3"],
-    ["MC07", "company", "M", "", "Are dealings with the other Velite firms approved by the board and entered in the register?", "Directors are personally liable for unapproved related-party deals.", "Companies Act 2013 s.188, 189", "Board resolution + MBP-4"],
+    ["MC06", "company", "M", "", "Are loans from directors and relatives backed by declarations?", "Money from others can be treated as illegal deposits.", "Companies (Acceptance of Deposits) Rules 2014", "Declarations"],
+    ["MC12", "company", "M", "", "Are such loans reported in DPT-3?", "Money from others can be treated as illegal deposits.", "Companies (Acceptance of Deposits) Rules 2014", "DPT-3"],
+    ["MC07", "company", "M", "", "Are dealings with the other Velite firms approved by the board?", "Directors are personally liable for unapproved related-party deals.", "Companies Act 2013 s.188", "Board resolution"],
+    ["MC13", "company", "M", "", "Are dealings with the other Velite firms entered in the register of contracts (MBP-4)?", "The register of contracts is a statutory register.", "Companies Act 2013 s.189", "MBP-4 register"],
     ["MC08", "company", "M", "", "Is every bank loan charge registered with ROC within 30 days?", "Late filing costs heavy extra fees.", "Companies Act 2013 s.77", "CHG-1"],
-    ["MC09", "company", "M", "", "Are share certificates issued and stamped, and is the beneficial-owner declaration in place?", "Proves ownership clearly.", "Companies Act 2013 s.56, 90", "Share register + BEN-2"],
+    ["MC09", "company", "M", "", "Are share certificates issued and stamped?", "Proves ownership clearly.", "Companies Act 2013 s.56", "Share register + certificates"],
+    ["MC14", "company", "M", "", "Is the beneficial-owner declaration in place (BEN-2)?", "Significant beneficial owners must be declared.", "Companies Act 2013 s.90", "BEN-2"],
   ]),
   ...D("DGFT & Customs", [
     ["DG01", "exporter|importer", "H", "", "Is the Import Export Code active and updated this year (April–June)?", "A de-activated IEC stops all shipments.", "Foreign Trade Policy 2023 para 2.05", "IEC status"],
