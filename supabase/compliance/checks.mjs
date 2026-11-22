@@ -292,11 +292,14 @@ export const CHECKS = [
   ...D("Town Planning & GLADA", [
     ["TP01", "mfg|owned_premises", "H", "", "Is the land allowed for our use (industrial zone / focal point allotment, or Change of Land Use permission)?", "This is the one approval that cannot be fixed later with a fee.", "Punjab Regional & Town Planning Act 1995; Master Plan Ludhiana", "Allotment letter / CLU / zoning certificate"],
     ["TP02", "mfg|owned_premises", "H", "", "Is the building plan sanctioned by the right authority (GLADA, Municipal Corporation, PSIEC or Director of Factories)?", "Unsanctioned buildings can be sealed and block every other licence.", "Punjab Urban Planning & Development Building Rules 2021", "Sanctioned plan"],
-    ["TP03", "mfg|owned_premises", "M", "", "Does the building match the sanctioned plan, with any extra construction regularised (compounded)?", "Mismatch surfaces at loan, sale or licence renewal time.", "Building Rules 2021", "As-built drawing / compounding receipt"],
+    ["TP03", "mfg|owned_premises", "M", "", "Does the building match the sanctioned plan?", "Mismatch surfaces at loan, sale or licence renewal time.", "Building Rules 2021", "As-built drawing"],
+    ["TP09", "mfg|owned_premises", "M", "", "Has any extra construction been regularised (compounded)?", "Unregularised extra construction surfaces at loan, sale or renewal time.", "Building Rules 2021", "Compounding receipt"],
     ["TP04", "mfg|owned_premises", "H", "", "Do we hold a completion / occupancy certificate for the building?", "Needed for bank loans, fire NOC and sale.", "Building Rules 2021", "Completion certificate"],
     ["TP05", "owned_premises", "M", "", "Are EDC, CLU and other development charges fully paid, with receipts?", "Dues carry interest and block no-dues certificates.", "GLADA / PUDA charge notifications", "Receipts / no-dues"],
-    ["TP06", "owned_premises", "M", "", "Is the title deed or lease registered in the correct firm's name and are allotment conditions met?", "The plot must stand in the name of the firm that holds the licences.", "Registration Act 1908; PSIEC terms", "Registry / lease deed"],
-    ["TP07", "rented", "M", "", "Is there a registered rent deed that allows our type of use, with the landlord's building approvals on file?", "Most licences ask for a registered deed.", "Registration Act 1908", "Rent deed"],
+    ["TP06", "owned_premises", "M", "", "Is the title deed or lease registered in the correct firm's name?", "The plot must stand in the name of the firm that holds the licences.", "Registration Act 1908", "Registry / lease deed"],
+    ["TP10", "owned_premises", "M", "", "Are the allotment conditions met?", "Breach of allotment terms can lead to cancellation or penalty.", "PSIEC terms", "Allotment letter conditions check"],
+    ["TP07", "rented", "M", "", "Is there a registered rent deed that allows our type of use?", "Most licences ask for a registered deed.", "Registration Act 1908", "Rent deed"],
+    ["TP11", "rented", "M", "", "Are the landlord's building approvals on file?", "Most licences ask for the landlord's approvals along with the deed.", "Registration Act 1908", "Landlord approvals"],
     ["TP08", "", "H", "", "Before any new construction or expansion, do we take all approvals first (through Invest Punjab single window)?", "For the new VS plant: approvals first, then construction.", "Punjab Right to Business Act 2020", "Approval tracker"],
   ]),
   ...D("PSPCL & Electrical", [
