@@ -1,0 +1,7 @@
+-- GST: four combined questions split (Nov 2026). Applied as migration "hub_chk_gst_splits". 11 points became 15.
+-- GS01 certificate displayed | GS12 (new) all places of business added to the certificate
+-- GS03 e-invoice (IRN) for every B2B sale | GS13 (new) e-way bill wherever needed (applies to firms that issue e-invoices)
+-- GS04 ITC matched with GSTR-2B monthly | GS14 (new) ITC reversed where suppliers are unpaid beyond 180 days
+-- GS09 job-work goods sent on challan | GS15 (new) job-work goods tracked until they return
+-- None of the original points had been answered, so no answers needed converting.
+-- The source of truth for the points is checks.mjs / checks.json (the order in checks.json is the display order).
