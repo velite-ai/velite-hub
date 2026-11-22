@@ -1,0 +1,11 @@
+-- Factories & Safety: seven combined questions split in two (Nov 2026). Applied as migration "hub_chk_factories_splits".
+-- FA01 licence valid | FA12 (new) licence covers actual workers and power load
+-- FA02 building plan approved | FA13 (new) stability certificate
+-- FA04 first-aid boxes stocked | FA14 (new) trained first-aiders on each shift
+-- FA05 pressure vessels tested (now applies to firms with pressure equipment) | FA15 (new) lifts and hoists tested (applies to firms with lifts)
+-- FA06 machines guarded | FA16 (new) PPE issued with a record
+-- FA08 overtime within legal limits | FA17 (new) overtime paid at double rate
+-- FA10 safety data sheets | FA18 (new) written emergency plan for chemical accidents
+-- Existing answers stayed on the original code; new points start unanswered, except: Pharmaceuticals' FA08 "Not applicable" was copied to FA17,
+-- and Pharmaceuticals' FA01 was corrected from Yes to No (factory licence expired 31 Dec 2022, not renewed), owner Piyush Verma, finish by 31 Dec 2026.
+-- The source of truth for the points is checks.mjs / checks.json (the order in checks.json is the display order).
