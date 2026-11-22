@@ -1,0 +1,11 @@
+-- Labour, PF & ESI: eight combined questions split (Nov 2026). Applied as migration "hub_chk_labour_splits". 16 points became 25.
+-- LB01 PF coverage | LB17 (new) UAN and KYC complete
+-- LB04 wages paid by the 7th through bank | LB18 (new) wage slips given
+-- LB08 gratuity liability worked out | LB19 (new) gratuity paid within 30 days of leaving
+-- LB09 POSH committee with an outside member | LB20 (new) policy displayed | LB21 (new) yearly report filed
+-- LB10 contractors hold a valid licence | LB22 (new) contractors' PF/ESI challans checked monthly
+-- LB12 age proof kept | LB23 (new) nobody under 18 in production
+-- LB14 apprentices in the required band | LB24 (new) apprentices registered on the portal
+-- LB16 maternity benefit | LB25 (new) equal pay
+-- None of the original points had been answered, so no answers needed converting.
+-- The source of truth for the points is checks.mjs / checks.json (the order in checks.json is the display order).
