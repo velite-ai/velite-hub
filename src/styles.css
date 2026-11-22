@@ -877,3 +877,7 @@ button:disabled{opacity:0.6;cursor:default;}
 
 /* Page-level search box (Tasks, Materials) */
 .pg-search{display:flex;gap:8px;align-items:center;margin:0 0 14px;} .pg-search .search-inp{flex:1;min-height:46px;font-size:15px;padding:0 14px;border-radius:12px;width:100%;}
+
+/* Checklist: "Partly done" (amber, not counted as in order) */
+.chk-b.part:hover,.chk-b.part.on{background:#f79009;border-color:#f79009;color:#fff;}
+.chk-tag.part{background:#fef0c7;color:#93370d;} .chk-pt.partial{border-left-color:#f79009;background:#fffcf5;}
