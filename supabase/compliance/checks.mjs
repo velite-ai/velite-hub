@@ -249,12 +249,15 @@ export const CHECKS = [
     ["DG08", "exporter", "L", "", "Are any Advance Authorisation / EPCG export obligations tracked with dates?", "Unmet obligations mean duty plus interest.", "FTP 2023 ch.4, 5", "Obligation tracker"],
   ]),
   ...D("RBI / FEMA", [
-    ["RB01", "exporter", "H", "", "Is payment for every export received within 15 months and the bank's EDPMS entry closed?", "Old open entries put the exporter on the caution list.", "FEMA Export & Import Regulations 2026", "EDPMS outstanding report"],
+    ["RB01", "exporter", "H", "", "Is payment for every export received within 15 months?", "Unpaid exports beyond the time limit are a FEMA violation.", "FEMA Export & Import Regulations 2026", "Bank statements / FIRC"],
+    ["RB07", "exporter", "H", "", "Is the bank's EDPMS entry closed for every export?", "Old open entries put the exporter on the caution list.", "FEMA Export & Import Regulations 2026", "EDPMS outstanding report"],
     ["RB02", "exporter", "M", "", "Do all foreign payments (including Amazon Global) come through the bank or an RBI-approved payment route?", "Money through informal routes is a FEMA violation.", "FEMA Manner of Receipt Regulations 2023", "Bank FIRC / statements"],
     ["RB03", "exporter", "M", "", "Where a buyer paid in advance, was the shipment made in the agreed time?", "Bank monitors unshipped advances.", "FEMA Export & Import Regulations 2026", "Advance tracker"],
     ["RB04", "exporter", "L", "", "Is any discount, write-off or reduction of export invoice value routed through the bank?", "It cannot be adjusted on our own.", "FEMA Export & Import Regulations 2026", "Bank approval"],
-    ["RB05", "importer", "M", "", "Are import payments made as per contract and IDPMS entries closed with the bill of entry?", "Open entries block future import payments.", "FEMA Export & Import Regulations 2026", "IDPMS report"],
-    ["RB06", "fdi", "H", "", "For any foreign investment, was FC-GPR filed within 30 days and is the FLA return filed by 15 July?", "Late filing needs compounding with RBI.", "FEMA (Non-Debt Instruments) Rules 2019", "FC-GPR + FLA acknowledgements"],
+    ["RB05", "importer", "M", "", "Are import payments made as per contract?", "Open entries block future import payments.", "FEMA Export & Import Regulations 2026", "Contract + payment proof"],
+    ["RB08", "importer", "M", "", "Are the IDPMS entries closed with the bill of entry?", "Open entries block future import payments.", "FEMA Export & Import Regulations 2026", "IDPMS report"],
+    ["RB06", "fdi", "H", "", "For any foreign investment, was FC-GPR filed within 30 days?", "Late filing needs compounding with RBI.", "FEMA (Non-Debt Instruments) Rules 2019", "FC-GPR acknowledgement"],
+    ["RB09", "fdi", "H", "", "Is the FLA return filed by 15 July?", "Late filing needs compounding with RBI.", "FEMA (Non-Debt Instruments) Rules 2019", "FLA acknowledgement"],
   ]),
   ...D("Legal Metrology", [
     ["LM01", "lmpc", "H", "lm", "Is the firm registered as packer / manufacturer under Legal Metrology?", "Selling packed goods without registration is fined per pack type.", "LM (Packaged Commodities) Rules 2011 r.27", "Registration certificate"],
