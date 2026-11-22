@@ -1,0 +1,9 @@
+-- Quality & GMP: four combined questions split in two (Nov 2026). Applied as migration "hub_chk_quality_splits".
+-- QC03 water validated  | QC11 (new) water tested regularly
+-- QC04 process validation | QC12 (new) cleaning validation
+-- QC05 change control   | QC13 (new) deviations and failed results (OOS)
+-- QC07 GMP training     | QC14 (new) yearly medical fitness
+-- The source of truth for the points is checks.mjs / checks.json (the order in checks.json is the display order).
+-- Existing answers stayed on the original code. Pharmaceuticals' old combined QC04 "No" (process partly done, cleaning not done) became
+-- QC04 = Partly done and QC12 = No, both with the same comment, owner and finish-by date; the follow-up action of QC04 was relabelled.
+-- New points QC11, QC13, QC14 start unanswered.
