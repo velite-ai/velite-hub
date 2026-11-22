@@ -27,6 +27,7 @@ function Users() {
   const { profiles, me } = useData();
   const [ask, dialog] = useConfirm();
   const [resetFor, setResetFor] = useState(null);
+  const [adding, setAdding] = useState(false);
   const pending = profiles.rows.filter((p) => p.status === "pending");
   const others = profiles.rows.filter((p) => p.status !== "pending");
 
@@ -37,6 +38,10 @@ function Users() {
 
   return (
     <div className="admin-pad">
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <div className="small-muted" style={{ maxWidth: 640 }}>People can create their own account on the sign-in page and wait here for approval. Or add someone directly: no email is sent, so the email limit does not apply.</div>
+        <button className="btn-primary" onClick={() => setAdding(true)}>＋ Add user</button>
+      </div>
       <div className="day-block-title">Waiting for approval <span className="section-count">{pending.length}</span></div>
       {pending.length === 0 && <div className="small-muted" style={{ marginBottom: 16 }}>No one is waiting.</div>}
       {pending.map((p) => <PendingRow key={p.id} p={p} onApprove={(role) => setUser(p, role, "approved", `${p.full_name} approved`)}
@@ -74,6 +79,7 @@ function Users() {
         Roles: <strong>owner</strong> — everything incl. Business Compass and this Admin page · <strong>manager</strong> and <strong>member</strong> — tasks, materials and (from Phase 2) compliance items assigned to them.
       </div>
       {resetFor && <ResetPassword p={resetFor} onClose={() => setResetFor(null)} />}
+      {adding && <AddUser onClose={() => setAdding(false)} onAdded={() => profiles.reload()} />}
       {dialog}
     </div>
   );
@@ -93,6 +99,69 @@ function PendingRow({ p, onApprove, onReject }) {
       <button className="btn-primary sm" onClick={() => onApprove(role)}>Approve</button>
       <button className="btn-ghost sm" onClick={onReject}>Reject</button>
     </div>
+  );
+}
+
+// ── Add a user directly (owner only). Calls the hub-add-user server function; no confirmation email is sent. ──
+const PW_CHARS = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const makePassword = () => Array.from(crypto.getRandomValues(new Uint32Array(10)), (n) => PW_CHARS[n % PW_CHARS.length]).join("");
+async function errorText(error) {
+  try { const j = await error.context.json(); if (j?.error) return j.error; } catch { /* fall through */ }
+  return error?.message || "Something went wrong. Try again.";
+}
+
+function AddUser({ onClose, onAdded }) {
+  const [f, setF] = useState({ full_name: "", email: "", mobile: "", role: "member", password: makePassword() });
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(null);
+  const [show, setShow] = useState(true);
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const message = (d) => `Velite Hub login\nWebsite: https://hub.velite.in\nEmail: ${d.email}\nPassword: ${d.password}\nPlease change the password after signing in (click your name at the top right).`;
+
+  const save = async () => {
+    if (f.full_name.trim().length < 2) { toast("Write the person's full name.", "err"); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) { toast("Check the email address.", "err"); return; }
+    if (f.password.length < 8) { toast("The password must be at least 8 characters.", "err"); return; }
+    setBusy(true);
+    const { data, error } = await supabase.functions.invoke("hub-add-user", { body: { ...f, email: f.email.trim(), full_name: f.full_name.trim(), mobile: f.mobile.trim() } });
+    setBusy(false);
+    if (error || data?.error) { toast(error ? await errorText(error) : data.error, "err"); return; }
+    toast(`${f.full_name.trim()} added`);
+    onAdded();
+    setDone({ email: f.email.trim().toLowerCase(), password: f.password, name: f.full_name.trim(), role: f.role });
+  };
+
+  if (done) {
+    const text = message(done);
+    return (
+      <Modal title={`✅ ${done.name} can now sign in`} onClose={onClose} actions={<button className="btn-primary" onClick={onClose}>Done</button>}>
+        <div className="cmp-alert" style={{ marginBottom: 10 }}>Share these details privately. This password is shown only now. If it is lost, use <b>Reset password</b> in the list.</div>
+        <pre className="form-inp" style={{ whiteSpace: "pre-wrap", userSelect: "all" }}>{text}</pre>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+          <button className="btn-ghost" onClick={() => navigator.clipboard?.writeText(text).then(() => toast("Copied"))}>📋 Copy</button>
+          <a className="btn-ghost" style={{ textDecoration: "none" }} href={`https://wa.me/?text=${encodeURIComponent(text)}`} target="_blank" rel="noreferrer">WhatsApp</a>
+        </div>
+      </Modal>
+    );
+  }
+  return (
+    <Modal title="Add a user" onClose={onClose} actions={<><button className="btn-ghost" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy} onClick={save}>{busy ? "Adding…" : "Add user"}</button></>}>
+      <div className="form-hint" style={{ marginBottom: 8 }}>The account is created and approved at once. No email is sent.</div>
+      <Field label="Full name"><input className="form-inp" autoFocus value={f.full_name} onChange={set("full_name")} /></Field>
+      <Field label="Email"><input className="form-inp" type="email" value={f.email} onChange={set("email")} autoComplete="off" /></Field>
+      <Field label="Mobile (optional)"><input className="form-inp" value={f.mobile} onChange={set("mobile")} /></Field>
+      <Field label="Role" hint="member or manager: tasks, materials and compliance items assigned to them. owner: everything, including Business Compass and this Admin page.">
+        <select className="form-inp" value={f.role} onChange={set("role")}>{ROLES.map((r) => <option key={r}>{r}</option>)}</select>
+      </Field>
+      {f.role === "owner" && <div className="cmp-alert" style={{ marginBottom: 10 }}>Owners can see everything and manage users. Choose owner only for someone who should.</div>}
+      <Field label="Temporary password" hint="Share it privately (for example on WhatsApp). They can change it after signing in.">
+        <div style={{ display: "flex", gap: 8 }}>
+          <input className="form-inp" type={show ? "text" : "password"} value={f.password} onChange={set("password")} autoComplete="new-password" />
+          <button type="button" className="btn-ghost" onClick={() => setShow(!show)}>{show ? "Hide" : "Show"}</button>
+          <button type="button" className="btn-ghost" onClick={() => setF({ ...f, password: makePassword() })}>New</button>
+        </div>
+      </Field>
+    </Modal>
   );
 }
 
