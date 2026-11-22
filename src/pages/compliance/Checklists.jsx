@@ -20,16 +20,17 @@ const fresh = (a) => a && !a.stale && (a.answered_at || "").slice(0, 10) >= fySt
 const eff = (a) => (fresh(a) ? a.answer : null);
 
 export function stat(points, amap, firmId) {
-  let ok = 0, no = 0, noH = 0, redo = 0;
+  let ok = 0, no = 0, noH = 0, redo = 0, part = 0;
   for (const p of points) {
     const a = amap.get(`${firmId}|${p.code}`); const e = eff(a);
     if (e === "yes" || e === "na") ok++;
     else if (e === "no") { no++; if (p.risk === "H") noH++; }
+    else if (e === "partial") part++;   // partly done: answered, but NOT counted as in order
     else if (a) redo++;
   }
   const t = points.length;
-  const tone = t === 0 ? "none" : ok === t ? "green" : noH > 0 ? "red" : ok + no === 0 ? "grey" : "amber";
-  return { t, ok, no, noH, redo, todo: t - ok - no, pct: t ? Math.round((100 * ok) / t) : 0, tone };
+  const tone = t === 0 ? "none" : ok === t ? "green" : noH > 0 ? "red" : ok + no + part === 0 ? "grey" : "amber";
+  return { t, ok, no, noH, part, redo, todo: t - ok - no - part, pct: t ? Math.round((100 * ok) / t) : 0, tone };
 }
 
 export default function Checklists({ onOpenItem, start }) {
@@ -65,7 +66,7 @@ export default function Checklists({ onOpenItem, start }) {
               <div className="chk-firm-top"><FirmBadge id={f.id} /> <b>{f.name}</b></div>
               <div className="chk-firm-pct" style={{ color: firmColor(f.id) }}>{s.pct}%<span> in order</span></div>
               <div className="chk-bar"><i style={{ width: `${s.pct}%`, background: "#16a34a" }} /><i style={{ width: `${s.t ? (100 * s.no) / s.t : 0}%`, background: "#dc2626" }} /></div>
-              <div className="chk-firm-sub">{s.ok} of {s.t} points OK · <b className={s.no ? "chk-red" : ""}>{s.no} gap{s.no === 1 ? "" : "s"}</b> · {s.todo} to answer</div>
+              <div className="chk-firm-sub">{s.ok} of {s.t} points OK · <b className={s.no ? "chk-red" : ""}>{s.no} gap{s.no === 1 ? "" : "s"}</b>{s.part > 0 && <> · {s.part} partly done</>} · {s.todo} to answer</div>
             </div>
           );
         })}
@@ -101,8 +102,8 @@ export default function Checklists({ onOpenItem, start }) {
                     const s = stat(byFirm[f.id].filter((p) => p.dept === dept), amap, f.id);
                     const head = d.chkHeads.rows.find((h) => h.firm_id === f.id && h.dept === dept);
                     return <td key={f.id}>{s.t === 0 ? <span className="chk-cell none">–</span> : (
-                      <button className={`chk-cell ${s.tone}`} title={`${s.ok} OK · ${s.no} gaps · ${s.todo} to answer${head?.head_id ? ` · Head: ${personName(d.profiles, head.head_id)}` : ""}`} onClick={() => setSel({ firm: f.id, dept })}>
-                        {s.ok}/{s.t}{s.no > 0 && <em>{s.no} gap{s.no === 1 ? "" : "s"}</em>}
+                      <button className={`chk-cell ${s.tone}`} title={`${s.ok} OK · ${s.no} gaps · ${s.part} partly done · ${s.todo} to answer${head?.head_id ? ` · Head: ${personName(d.profiles, head.head_id)}` : ""}`} onClick={() => setSel({ firm: f.id, dept })}>
+                        {s.ok}/{s.t}{s.no > 0 && <em>{s.no} gap{s.no === 1 ? "" : "s"}</em>}{s.part > 0 && <em>{s.part} partly</em>}
                       </button>)}</td>;
                   })}
                 </tr>
@@ -125,10 +126,10 @@ function PointList({ firm, points, amap, dept, tag, onBack, onOpenItem }) {
   const isHead = headRow?.head_id === d.me.id;
   const s = stat(points, amap, firm.id);
   const get = (p) => amap.get(`${firm.id}|${p.code}`);
-  const redo = points.filter((p) => { const a = get(p); return a && !fresh(a) && a.answer !== "no"; });
+  const redo = points.filter((p) => { const a = get(p); return a && !fresh(a) && a.answer !== "no" && a.answer !== "partial"; });
   const list = points.filter((p) => {
     const e = eff(get(p));
-    return show === "all" || (show === "todo" && !e) || (show === "no" && e === "no") || (show === "high" && p.risk === "H");
+    return show === "all" || (show === "todo" && !e) || (show === "no" && e === "no") || (show === "part" && e === "partial") || (show === "high" && p.risk === "H");
   });
   const title = dept ? dept : INSPECTIONS.find((x) => x[0] === tag)?.[1] + " — inspection-ready list";
   const ds = dept ? dstyle(dept) : { icon: "🔎", c: "#1e3a8a" };
@@ -157,7 +158,7 @@ function PointList({ firm, points, amap, dept, tag, onBack, onOpenItem }) {
         <div className="chk-head-main">
           <div className="chk-head-title"><span>{ds.icon}</span> {title} <FirmBadge id={firm.id} /> <small>{firm.name}</small></div>
           <div className="chk-bar big"><i style={{ width: `${s.pct}%`, background: "#16a34a" }} /><i style={{ width: `${s.t ? (100 * s.no) / s.t : 0}%`, background: "#dc2626" }} /></div>
-          <div className="chk-firm-sub">{s.ok} of {s.t} in order ({s.pct}%) · <b className={s.no ? "chk-red" : ""}>{s.no} gap{s.no === 1 ? "" : "s"}</b> · {s.todo} still to answer</div>
+          <div className="chk-firm-sub">{s.ok} of {s.t} in order ({s.pct}%) · <b className={s.no ? "chk-red" : ""}>{s.no} gap{s.no === 1 ? "" : "s"}</b>{s.part > 0 && <> · {s.part} partly done</>} · {s.todo} still to answer</div>
         </div>
         {dept && (
           <div className="chk-head-side chk-noprint">
@@ -178,7 +179,7 @@ function PointList({ firm, points, amap, dept, tag, onBack, onOpenItem }) {
       )}
 
       <div className="seg chk-noprint" style={{ marginBottom: 12 }}>
-        {[["all", `All (${points.length})`], ["todo", `To answer (${s.todo})`], ["no", `Gaps (${s.no})`], ["high", "High risk only"]].map(([k, l]) => <button key={k} className={show === k ? "on" : ""} onClick={() => setShow(k)}>{l}</button>)}
+        {[["all", `All (${points.length})`], ["todo", `To answer (${s.todo})`], ["no", `Gaps (${s.no})`], ["part", `Partly done (${s.part})`], ["high", "High risk only"]].map(([k, l]) => <button key={k} className={show === k ? "on" : ""} onClick={() => setShow(k)}>{l}</button>)}
         <button onClick={() => window.print()}>🖨️ Print</button>
       </div>
 
@@ -202,6 +203,7 @@ function PointList({ firm, points, amap, dept, tag, onBack, onOpenItem }) {
                     {e === "yes" && <span className="chk-tag yes">✅ Yes</span>}
                     {e === "yes" && !a.ref_no && !a.proof_link && !a.proof_path && <span className="chk-tag redo" title="Answered Yes with a comment, no document on file">💬 Comment only, no document</span>}
                     {e === "na" && <span className="chk-tag na">Not applicable</span>}
+                    {e === "partial" && <span className="chk-tag part">🟠 Partly done — finish by {fmtDate(a.action_due)}{a.action_owner ? ` · ${personName(d.profiles, a.action_owner)}` : " · no one assigned"}</span>}
                     {e === "no" && <span className="chk-tag no">❌ Gap — fix by {fmtDate(a.action_due)}{a.action_owner ? ` · ${personName(d.profiles, a.action_owner)}` : " · no one assigned"}</span>}
                     {a.ref_no && <span>Ref: {a.ref_no}</span>}
                     {!p.lic && a.proof_path && <button className="link-btn" onClick={() => openProof(a.proof_path)}>📎 {a.proof_name || "file"}</button>}
@@ -209,13 +211,14 @@ function PointList({ firm, points, amap, dept, tag, onBack, onOpenItem }) {
                     {!p.lic && (() => { const n = docsOf(d.cmpDocs.rows, "check", `${firm.id}|${p.code}`).length; return n ? <button className="link-btn" onClick={() => setAns({ point: p, mode: "yes" })}>📂 {n} more paper{n === 1 ? "" : "s"}</button> : null; })()}
                     {a.note && <span className="chk-note">“{a.note}”</span>}
                     <span className="small-muted">{a.answered_by_name}, {fmtDate((a.answered_at || "").slice(0, 10))}</span>
-                    {e === "no" && item && onOpenItem && <button className="link-btn chk-noprint" onClick={() => onOpenItem({ id: item.id })}>Open the action →</button>}
+                    {(e === "no" || e === "partial") && item && onOpenItem && <button className="link-btn chk-noprint" onClick={() => onOpenItem({ id: item.id })}>Open the action →</button>}
                   </div>
                 )}
               </div>
               <div className="chk-btns chk-noprint">
                 {old && a.answer !== "no" && <button className="chk-b same" disabled={busy} onClick={() => confirmAll([p.code])}>Still the same ✓</button>}
                 <button className={`chk-b yes ${e === "yes" ? "on" : ""}`} onClick={() => setAns({ point: p, mode: "yes" })}>Yes</button>
+                <button className={`chk-b part ${e === "partial" ? "on" : ""}`} title="Some of it is done, the rest is still pending" onClick={() => setAns({ point: p, mode: "partial" })}>Partly</button>
                 <button className={`chk-b no ${e === "no" ? "on" : ""}`} onClick={() => setAns({ point: p, mode: "no" })}>No</button>
                 <button className={`chk-b na ${e === "na" ? "on" : ""}`} onClick={() => setAns({ point: p, mode: "na" })}>N/A</button>
               </div>
@@ -258,16 +261,17 @@ function AnswerModal({ firm, point, mode, prev, people, onClose }) {
     if (mode === "yes" && !f.ref.trim() && !f.link.trim() && !f.path && extra.length) { f.ref = `${extra.length} paper${extra.length === 1 ? "" : "s"} on file`; }
     if (mode === "yes" && !f.ref.trim() && !f.link.trim() && !f.path && !f.note.trim()) { toast("Add proof for Yes: attach a file, paste a link or write a reference number. If no document is available, write a comment instead.", "err"); return; }
     if (mode === "na" && !f.note.trim()) { toast("Write why it does not apply.", "err"); return; }
-    if (mode === "no" && !f.due) { toast("Choose the date by which it will be fixed.", "err"); return; }
+    if (mode === "partial" && !f.note.trim()) { toast("Write what is done and what is still pending.", "err"); return; }
+    if ((mode === "no" || mode === "partial") && !f.due) { toast("Choose the date by which it will be fixed / finished.", "err"); return; }
     setBusy(true);
     const r = await run(supabase.rpc("hub_chk_answer", {
       p_firm: firm.id, p_code: point.code, p_answer: mode, p_note: f.note, p_ref: mode === "yes" ? f.ref : null, p_link: mode === "yes" ? f.link : null,
-      p_path: mode === "yes" ? f.path : null, p_name: mode === "yes" ? f.name : null, p_owner: mode === "no" ? f.owner || null : null, p_due: mode === "no" ? f.due : null,
+      p_path: mode === "yes" ? f.path : null, p_name: mode === "yes" ? f.name : null, p_owner: mode === "no" || mode === "partial" ? f.owner || null : null, p_due: mode === "no" || mode === "partial" ? f.due : null,
     }), mode === "no" ? "Saved — an action with reminders has been created" : "Saved");
     setBusy(false);
     if (r.ok) { d.chkAnswers.reload(); d.cmpItems.reload(); onClose(); }
   };
-  const label = mode === "yes" ? "✅ Yes — we have this" : mode === "no" ? "❌ No — this is a gap" : "Not applicable to this firm";
+  const label = mode === "yes" ? "✅ Yes — we have this" : mode === "partial" ? "🟠 Partly done — work in progress" : mode === "no" ? "❌ No — this is a gap" : "Not applicable to this firm";
   return (
     <Modal title={label} onClose={onClose} actions={<><button className="btn-ghost" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save"}</button></>}>
       <div className="chk-modal-q"><FirmBadge id={firm.id} /> {point.q}</div>
@@ -282,6 +286,12 @@ function AnswerModal({ firm, point, mode, prev, people, onClose }) {
         <Field label="Or licence / reference number, or where the paper is kept"><input className="inp" value={f.ref} onChange={set("ref")} /></Field>
         <Field label="Comment (needed if you have no file, link or number)"><textarea className="inp" rows={2} value={f.note} onChange={set("note")} placeholder="e.g. Record is kept in the QA office file; confirmed by the QA head on 18 Nov. No scanned copy yet." /></Field>
         <DocChain firmId={firm.id} type="check" id={`${firm.id}|${point.code}`} folder={`${firm.id}/checklist/${point.code}`} title="More papers for this point (optional — any number)" />
+      </>}
+      {mode === "partial" && <>
+        <div className="cmp-alert">Partly done means some of it is in place and the rest is still pending. It is <b>not</b> counted as in order. The app creates an action with reminders until the rest is finished. When that action is marked done with proof, this point turns to Yes on its own.</div>
+        <Field label="What is done, and what is still pending? (required)"><textarea className="inp" rows={3} value={f.note} onChange={set("note")} placeholder="e.g. Process validation done for all products. Cleaning validation not started." /></Field>
+        <Field label="Who will finish it?"><select className="inp" value={f.owner} onChange={set("owner")}><option value="">— department head / not set —</option>{people.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}</select></Field>
+        <Field label="Finish by (date, required)"><input className="inp" type="date" value={f.due} onChange={set("due")} /></Field>
       </>}
       {mode === "no" && <>
         <div className="cmp-alert">Saying No is good — it shows the gap honestly. The app will create an action and send reminders until it is closed. When the action is marked done with proof, this point turns to Yes on its own.</div>
