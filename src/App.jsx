@@ -4,6 +4,7 @@ import { DataProvider, Toasts, useData, toast } from "./lib/data";
 import Login, { PendingScreen } from "./pages/Login";
 import MyDay, { myAlerts, cmpAlerts } from "./pages/MyDay";
 import Materials from "./pages/Materials";
+import QcRelease from "./pages/QcRelease";
 import Tasks from "./pages/Tasks";
 import Compass from "./pages/Compass";
 import Trademarks from "./pages/Trademarks";
@@ -99,6 +100,7 @@ function Bell({ alerts, go }) {
 const TABS = [
   { k: "myday", label: "🏠 My Day" },
   { k: "materials", label: "📦 Materials", mat: true },
+  { k: "qc", label: "🧪 QC Release", qcTab: true },
   { k: "tasks", label: "✅ Tasks" },
   { k: "compliance", label: "🛡️ Compliance", staff: true },
   { k: "ipr", label: "⚖️ Trademarks", staff: true },
@@ -115,8 +117,8 @@ function useHashTab(allowed) {
 }
 
 function Shell({ onSignOut, reloadMe }) {
-  const { me, isOwner, isStaff, matLists, tasks, profiles, cmpItems } = useData();
-  const tabs = TABS.filter((t) => (!t.owner || isOwner) && (!t.staff || isStaff) && (!t.mat || matLists.length > 0));
+  const { me, isOwner, isStaff, matLists, canQc, tasks, profiles, cmpItems } = useData();
+  const tabs = TABS.filter((t) => (!t.owner || isOwner) && (!t.staff || isStaff) && (!t.mat || matLists.length > 0) && (!t.qcTab || canQc));
   const [tab, go] = useHashTab(tabs.map((t) => t.k));
   const [acct, setAcct] = useState(false);
   const alerts = myAlerts(tasks, me) + cmpAlerts(cmpItems, me);
@@ -147,6 +149,7 @@ function Shell({ onSignOut, reloadMe }) {
       <div className="page">
         {tab === "myday" && <MyDay go={go} />}
         {tab === "materials" && matLists.length > 0 && <Materials />}
+        {tab === "qc" && canQc && <QcRelease />}
         {tab === "tasks" && <Tasks />}
         {tab === "compliance" && isStaff && <Compliance />}
         {tab === "ipr" && isStaff && <Trademarks />}
