@@ -5,6 +5,7 @@ import Login, { PendingScreen } from "./pages/Login";
 import MyDay, { myAlerts, cmpAlerts } from "./pages/MyDay";
 import Materials from "./pages/Materials";
 import QcRelease from "./pages/QcRelease";
+import BatchDetail from "./pages/BatchDetail";
 import Tasks from "./pages/Tasks";
 import Compass from "./pages/Compass";
 import Trademarks from "./pages/Trademarks";
@@ -100,6 +101,7 @@ function Bell({ alerts, go }) {
 const TABS = [
   { k: "myday", label: "🏠 My Day" },
   { k: "materials", label: "📦 Materials", mat: true },
+  { k: "batches", label: "🏭 Batch Detail", batchTab: true },
   { k: "qc", label: "🧪 QC Release", qcTab: true },
   { k: "tasks", label: "✅ Tasks" },
   { k: "compliance", label: "🛡️ Compliance", staff: true },
@@ -117,8 +119,8 @@ function useHashTab(allowed) {
 }
 
 function Shell({ onSignOut, reloadMe }) {
-  const { me, isOwner, isStaff, matLists, canQc, tasks, profiles, cmpItems } = useData();
-  const tabs = TABS.filter((t) => (!t.owner || isOwner) && (!t.staff || isStaff) && (!t.mat || matLists.length > 0) && (!t.qcTab || canQc));
+  const { me, isOwner, isStaff, matLists, canQc, canBatch, tasks, profiles, cmpItems } = useData();
+  const tabs = TABS.filter((t) => (!t.owner || isOwner) && (!t.staff || isStaff) && (!t.mat || matLists.length > 0) && (!t.qcTab || canQc) && (!t.batchTab || canBatch));
   const [tab, go] = useHashTab(tabs.map((t) => t.k));
   const [acct, setAcct] = useState(false);
   const alerts = myAlerts(tasks, me) + cmpAlerts(cmpItems, me);
@@ -149,7 +151,8 @@ function Shell({ onSignOut, reloadMe }) {
       <div className="page">
         {tab === "myday" && <MyDay go={go} />}
         {tab === "materials" && matLists.length > 0 && <Materials />}
-        {tab === "qc" && canQc && <QcRelease />}
+        {tab === "qc" && canQc && <QcRelease go={go} />}
+        {tab === "batches" && canBatch && <BatchDetail go={go} />}
         {tab === "tasks" && <Tasks />}
         {tab === "compliance" && isStaff && <Compliance />}
         {tab === "ipr" && isStaff && <Trademarks />}

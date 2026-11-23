@@ -912,3 +912,11 @@ button.qc-row{cursor:pointer;} button.qc-row:hover{background:#f9fafb;}
 @media print{.qc-add,.qc-tabs{display:none;}}
 .qc-tent{font-size:12px;font-weight:600;color:#475467;background:#eef2f6;border-radius:999px;padding:2px 9px;white-space:nowrap;} .qc-tent.late{background:#fee2e2;color:#b91c1c;}
 .qc-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:12px;} .qc-facts div{background:#f6f8fa;border-radius:10px;padding:10px 12px;} .qc-facts b{display:block;font-size:24px;color:#172033;line-height:1.2;} .qc-facts span{font-size:12.5px;color:#667085;}
+
+/* Batch Detail */
+.bd-hero{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+.qc-add{background:#fff;color:#0f766e;border:none;border-radius:10px;font-weight:700;padding:9px 16px;cursor:pointer;font:inherit;font-weight:700;}
+.bd-split{border:1px dashed #cbd5e1;border-radius:10px;padding:10px 12px;margin-top:10px;background:#f8fafc;}
+.bd-kid{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:6px;margin-top:6px;align-items:center;}
+@media(max-width:600px){.bd-kid{grid-template-columns:1fr 1fr;}}
+.row-off{opacity:.5;}

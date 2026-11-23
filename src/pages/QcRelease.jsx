@@ -3,6 +3,7 @@ import { supabase } from "../supabase";
 import { useData, run, toast } from "../lib/data";
 import { Modal, Field, Empty, SearchBox, useConfirm } from "../components/ui";
 import { FIRM_COLORS } from "./compliance/common";
+import { normBatch } from "../lib/batches";
 import {
   STAGES, STAGE_KEYS, FIRMS, REMARKS, STATE_LABEL, STATE_COLOR, stateOf, isWaiting, releaseDate, qcDays, totalDays, median, avg,
   fmtD, fmtM, fmtT, tentativeGap, overdueDays, monthKey, monthLabel, todayISO, daysBetween, addDays, warningsFor, readOldSheet,
@@ -189,7 +190,7 @@ function Entries({ rows, preset, today, onOpen, onNew }) {
                 return (
                   <tr key={r.id} className="qc-tr" onClick={() => onOpen(r)}>
                     <td className="nowrap">{fmtD(r.entry_date)}</td>
-                    <td><span className="qc-dot" style={{ background: STAGES[r.stage].color }} />{r.firm_id && <span className="tk-firm" style={{ background: FIRM_COLORS[r.firm_id] }}>{r.firm_id}</span>}<b>{r.item_name}</b>{r.qty && <small className="qc-sub"> {r.qty}</small>}
+                    <td><span className="qc-dot" style={{ background: STAGES[r.stage].color }} />{r.firm_id && <span className="tk-firm" style={{ background: FIRM_COLORS[r.firm_id] }}>{r.firm_id}</span>}<b>{r.item_name}</b>{r.batch_id && <span className="qc-tent" title="Comes from Batch Detail" style={{ marginLeft: 6 }}>🏭</span>}{r.qty && <small className="qc-sub"> {r.qty}</small>}
                       {(r.import_flags || []).length > 0 && !r.review_done && <span title={r.import_flags.join("\n")} className="qc-flag">⚠</span>}</td>
                     <td>{r.batch_no || r.supplier || "—"}{r.batch_no && r.supplier ? <small className="qc-sub"> {r.supplier}</small> : null}</td>
                     <td className="nowrap">{fmtD(r.sampling_date) || "—"}{r.sample_received_time && <small className="qc-sub"> {fmtT(r.sample_received_time)}</small>}{r.sampled_by && <small className="qc-sub"> {r.sampled_by}</small>}</td>
@@ -221,8 +222,12 @@ const FIELDS = ["firm_id", "entry_date", "item_name", "qty", "containers", "supp
   "qc_release_date", "qc_report_no", "qc_remarks", "assay", "water_lod", "micro_release_date", "micro_report_no", "micro_remarks", "control_release_date", "final_release_date", "notes"];
 
 function EntryForm({ row, stage: stage0, rows, onClose, onSaved }) {
-  const { isOwner, profiles } = useData();
+  const { isOwner, profiles, batches } = useData();
   const isNew = !row;
+  const batch = row?.batch_id ? batches.rows.find((b) => b.id === row.batch_id) : null;
+  const locked = !!batch; // item, batch, firm and dates come from Batch Detail
+  const sibs = batch ? batches.rows.filter((b) => !b.deleted_at && b.id !== batch.id && b.firm_id === batch.firm_id && b.kind === batch.kind && b.group_no === batch.group_no && b.series_year === batch.series_year) : [];
+  const bulkRow = batch ? rows.find((r) => r.stage === "bulk" && normBatch(r.batch_no) === normBatch(batch.group_no) && (r.mfg || "").slice(0, 7) === (batch.mfg || "").slice(0, 7)) : null;
   const [stage, setStage] = useState(row?.stage || stage0 || "fp");
   const [f, setF] = useState(() => { const o = {}; FIELDS.forEach((k) => { o[k] = row?.[k] ?? ""; }); if (isNew) o.entry_date = todayISO(); return o; });
   const [busy, setBusy] = useState(false);
@@ -265,7 +270,7 @@ function EntryForm({ row, stage: stage0, rows, onClose, onSaved }) {
   };
 
   const dateField = (k, label, hint) => <Field label={label} hint={hint}><input className="form-inp" type="date" value={f[k] || ""} onChange={set(k)} /></Field>;
-  const monthField = (k, label) => <Field label={label}><input className="form-inp" type="month" value={f[k] ? f[k].slice(0, 7) : ""} onChange={setM(k)} /></Field>;
+  const monthField = (k, label) => <Field label={label}><input className="form-inp" type="month" disabled={locked && (k === "mfg" || k === "exp")} value={f[k] ? f[k].slice(0, 7) : ""} onChange={setM(k)} /></Field>;
   const remarkField = (k, label) => <Field label={label}><select className="form-inp" value={f[k] || ""} onChange={set(k)}><option value="">— waiting —</option>{REMARKS.map((x) => <option key={x}>{x}</option>)}</select></Field>;
 
   return (
@@ -277,16 +282,24 @@ function EntryForm({ row, stage: stage0, rows, onClose, onSaved }) {
           {STAGE_KEYS.map((k) => <button key={k} className={stage === k ? "on" : ""} onClick={() => setStage(k)}>{STAGES[k].icon} {STAGES[k].title}</button>)}
         </div>)}
 
+      {batch && (
+        <div className="bd-split" style={{ marginBottom: 10 }}>
+          <b>🏭 From Production (Batch Detail)</b>
+          <div className="small-muted">Product, batch number, firm and dates are set in Batch Detail, so they are locked here.</div>
+          <div className="small-muted">{[batch.pack_size, batch.mrp != null && `MRP ₹${batch.mrp}`, batch.pieces != null && `${batch.pieces.toLocaleString("en-IN")} pcs`, batch.batch_size != null && `${Number(batch.batch_size)} ${batch.batch_size_unit || ""}`, batch.market].filter(Boolean).join(" · ")}</div>
+          {sibs.length > 0 && <div className="small-muted">Same lot also filled as: {sibs.map((x) => `${x.batch_no} ${x.product_name}`).join("; ")}</div>}
+          {bulkRow && <div className="small-muted">Bulk batch {bulkRow.batch_no} in QC: {STATE_LABEL[stateOf(bulkRow)]}</div>}
+        </div>)}
       <div className="qc-sec">1 · {stage === "bulk" || stage === "fp" ? "Production" : "Received"}</div>
       <div className="form-grid">
         <Field label={stage === "fp" ? "Firm (required)" : "Firm (optional)"}>
-          <select className="form-inp" value={f.firm_id || ""} onChange={set("firm_id")}><option value="">{stage === "fp" ? "Choose…" : "Not decided / both"}</option>{FIRMS.map((x) => <option key={x}>{x}</option>)}</select>
+          <select className="form-inp" disabled={locked} value={f.firm_id || ""} onChange={set("firm_id")}><option value="">{stage === "fp" ? "Choose…" : "Not decided / both"}</option>{FIRMS.map((x) => <option key={x}>{x}</option>)}</select>
         </Field>
         {dateField("entry_date", stage === "raw" || stage === "packing" ? "Date received" : "Date")}
         <Field label={stage === "fp" ? "Batch size" : "Quantity"}><input className="form-inp" value={f.qty || ""} onChange={set("qty")} placeholder={stage === "raw" ? "e.g. 25 kg" : stage === "packing" ? "e.g. 10500" : "e.g. 100 kg"} /></Field>
       </div>
       <Field label={st.item}>
-        <input className="form-inp" list="qc-items" value={f.item_name} onChange={(e) => { const v = e.target.value; setF((x) => ({ ...x, item_name: v, firm_id: stage === "fp" && !x.firm_id ? brandFirm(v) : x.firm_id })); }} placeholder="Type or pick from the list…" />
+        <input className="form-inp" disabled={locked} list="qc-items" value={f.item_name} onChange={(e) => { const v = e.target.value; setF((x) => ({ ...x, item_name: v, firm_id: stage === "fp" && !x.firm_id ? brandFirm(v) : x.firm_id })); }} placeholder="Type or pick from the list…" />
         <datalist id="qc-items">{items.map((x) => <option key={x} value={x} />)}</datalist>
       </Field>
       <div className="form-grid">
@@ -294,7 +307,7 @@ function EntryForm({ row, stage: stage0, rows, onClose, onSaved }) {
         {(stage === "raw" || stage === "packing") && <Field label="No. of containers"><input className="form-inp" type="number" min="0" value={f.containers ?? ""} onChange={set("containers")} /></Field>}
         {stage === "packing" && <Field label="Bill no."><input className="form-inp" value={f.bill_no || ""} onChange={set("bill_no")} /></Field>}
         {stage === "packing" && dateField("bill_date", "Bill date")}
-        {stage !== "packing" && <Field label="Batch no."><input className="form-inp" value={f.batch_no || ""} onChange={set("batch_no")} /></Field>}
+        {stage !== "packing" && <Field label="Batch no."><input className="form-inp" disabled={locked} value={f.batch_no || ""} onChange={set("batch_no")} /></Field>}
         {stage !== "packing" && monthField("mfg", "Mfg (month)")}
         {stage !== "packing" && monthField("exp", "Exp (month)")}
       </div>
