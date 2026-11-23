@@ -28,7 +28,7 @@ export function cmpAlerts(cmpItems, me) {
 }
 
 export default function MyDay({ go }) {
-  const { me, isOwner, tasks, materials, comments, goals, goalItems, trademarks, cmpItems, cmpLib } = useData();
+  const { me, isOwner, matLists, tasks, materials, comments, goals, goalItems, trademarks, cmpItems, cmpLib } = useData();
   const [edit, setEdit] = useState(null);
   const isStaff = isOwner || me.role === "manager";
 
@@ -96,12 +96,12 @@ export default function MyDay({ go }) {
         </div>
 
         <div className="day-side">
-          <div className="section">
+          {matLists.length > 0 && <div className="section">
             <div className="section-head"><div className="section-title">📦 Materials</div>
               <button className="link-btn strong" onClick={() => go("materials")}>Open →</button></div>
             <div className="stat-row">
-              <div className="stat"><div className="stat-n">{mat.rmPending}</div><div className="stat-l">Raw pending</div></div>
-              <div className="stat"><div className="stat-n">{mat.pmPending}</div><div className="stat-l">Packing pending</div></div>
+              {matLists.includes("rm") && <div className="stat"><div className="stat-n">{mat.rmPending}</div><div className="stat-l">Raw pending</div></div>}
+              {matLists.includes("pm") && <div className="stat"><div className="stat-n">{mat.pmPending}</div><div className="stat-l">Packing pending</div></div>}
               <div className="stat"><div className="stat-n">{mat.ordered}</div><div className="stat-l">Awaiting receipt</div></div>
             </div>
             {mat.hot.length > 0 && (
@@ -116,7 +116,7 @@ export default function MyDay({ go }) {
                 })}
               </div>
             )}
-          </div>
+          </div>}
 
           <div className="section">
             <div className="section-head"><div className="section-title">💬 New comments on my items</div></div>

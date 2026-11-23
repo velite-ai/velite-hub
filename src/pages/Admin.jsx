@@ -36,6 +36,13 @@ function Users() {
     if (r.ok) profiles.reload();
   };
 
+  const setMaterials = async (p, k) => {
+    const cur = p.material_lists || [];
+    const next = cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k];
+    const r = await run(supabase.rpc("hub_admin_set_materials", { p_user: p.id, p_lists: next }), "Materials access updated");
+    if (r.ok) profiles.reload();
+  };
+
   return (
     <div className="admin-pad">
       <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -50,7 +57,7 @@ function Users() {
       <div className="day-block-title" style={{ marginTop: 18 }}>Team</div>
       <div className="table-wrap">
         <table className="tbl">
-          <thead><tr><th>Name</th><th>Email / mobile</th><th>Role</th><th>Status</th><th>Approved</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>Email / mobile</th><th>Role</th><th>Materials</th><th>Status</th><th>Approved</th><th></th></tr></thead>
           <tbody>
             {others.map((p) => (
               <tr key={p.id} className={p.status === "disabled" ? "row-off" : ""}>
@@ -61,6 +68,15 @@ function Users() {
                     onChange={(e) => setUser(p, e.target.value, p.status, "Role updated")}>
                     {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                   </select>
+                </td>
+                <td>
+                  {p.role === "owner" || p.role === "manager" ? <span className="small-muted">Both lists</span> : (
+                    <div title="Can see and add to these material lists. Without a tick, Materials is hidden for this person.">
+                      {[["rm", "Raw"], ["pm", "Packing"]].map(([k, l]) => (
+                        <label key={k} style={{ display: "block", fontSize: 13 }}>
+                          <input type="checkbox" checked={(p.material_lists || []).includes(k)} onChange={() => setMaterials(p, k)} /> {l}
+                        </label>))}
+                    </div>)}
                 </td>
                 <td>{p.status}</td>
                 <td className="small-muted">{p.approved_by_name ? `${p.approved_by_name}, ${fmtDateTime(p.approved_at)}` : "—"}</td>
@@ -76,7 +92,7 @@ function Users() {
         </table>
       </div>
       <div className="form-hint" style={{ marginTop: 10 }}>
-        Roles: <strong>owner</strong> — everything incl. Business Compass and this Admin page · <strong>manager</strong> and <strong>member</strong> — tasks, materials and (from Phase 2) compliance items assigned to them.
+        Roles: <strong>owner</strong> — everything incl. Business Compass and this Admin page · <strong>manager</strong> and <strong>member</strong> — tasks given to them or by them, the Materials list(s) ticked above, and compliance items assigned to them.
       </div>
       {resetFor && <ResetPassword p={resetFor} onClose={() => setResetFor(null)} />}
       {adding && <AddUser onClose={() => setAdding(false)} onAdded={() => profiles.reload()} />}
