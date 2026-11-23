@@ -6,7 +6,7 @@ import { FIRM_COLORS } from "./compliance/common";
 import { normBatch } from "../lib/batches";
 import {
   STAGES, STAGE_KEYS, FIRMS, REMARKS, STATE_LABEL, STATE_COLOR, stateOf, isWaiting, releaseDate, qcDays, totalDays, median, avg,
-  fmtD, fmtM, fmtT, tentativeGap, overdueDays, monthKey, monthLabel, todayISO, daysBetween, addDays, warningsFor, readOldSheet,
+  fmtD, fmtM, fmtT, tentativeGap, overdueDays, monthKey, monthLabel, todayISO, daysBetween, addDays, warningsFor, tentativeFor, readOldSheet,
 } from "../lib/qc";
 
 // QC Release register: replaces the "Material Release Table" Google Sheet.
@@ -128,7 +128,7 @@ function QueueRow({ r, today, onOpen }) {
         <b>{r.firm_id && <span className="tk-firm" style={{ background: FIRM_COLORS[r.firm_id] }}>{r.firm_id}</span>}{r.item_name}</b>
         <small>{STAGES[r.stage].short}{r.batch_no ? ` · batch ${r.batch_no}` : ""}{r.sampled_by ? ` · sampled by ${r.sampled_by}` : ""}</small>
       </span>
-      {r.tentative_release_date && <span className={`qc-tent ${overdueDays(r, today) > 0 ? "late" : ""}`} title="Tentative date of release set by the QC Head">due {fmtD(r.tentative_release_date).slice(0, 5)}{overdueDays(r, today) > 0 ? ` · ${overdueDays(r, today)} d late` : ""}</span>}
+      {tentativeFor(r) && <span className={`qc-tent ${overdueDays(r, today) > 0 ? "late" : ""}`} title="Tentative date of release set by the QC Head">due {fmtD(tentativeFor(r)).slice(0, 5)}{overdueDays(r, today) > 0 ? ` · ${overdueDays(r, today)} d late` : ""}</span>}
       <span className="qc-pill" style={{ background: STATE_COLOR[r._state] }}>{STATE_LABEL[r._state]}</span>
       <span className={`qc-age ${late ? "late" : ""}`}>{age != null ? `${age} d` : ""}</span>
       <button className="btn-ghost sm" onClick={() => onOpen(r)}>Record result</button>
@@ -194,7 +194,7 @@ function Entries({ rows, preset, today, onOpen, onNew }) {
                       {(r.import_flags || []).length > 0 && !r.review_done && <span title={r.import_flags.join("\n")} className="qc-flag">⚠</span>}</td>
                     <td>{r.batch_no || r.supplier || "—"}{r.batch_no && r.supplier ? <small className="qc-sub"> {r.supplier}</small> : null}</td>
                     <td className="nowrap">{fmtD(r.sampling_date) || "—"}{r.sample_received_time && <small className="qc-sub"> {fmtT(r.sample_received_time)}</small>}{r.sampled_by && <small className="qc-sub"> {r.sampled_by}</small>}</td>
-                    <td className="nowrap">{r.qc_release_date ? fmtD(r.qc_release_date) : r.tentative_release_date ? <span className={overdueDays(r, today) > 0 && isWaiting(r._state) ? "due-over" : "qc-sub"}>due {fmtD(r.tentative_release_date).slice(0, 5)}</span> : "—"}{r.qc_report_no && <small className="qc-sub"> {r.qc_report_no}</small>}</td>
+                    <td className="nowrap">{r.qc_release_date ? fmtD(r.qc_release_date) : tentativeFor(r) ? <span className={overdueDays(r, today) > 0 && isWaiting(r._state) ? "due-over" : "qc-sub"}>due {fmtD(tentativeFor(r)).slice(0, 5)}</span> : "—"}{r.qc_report_no && <small className="qc-sub"> {r.qc_report_no}</small>}</td>
                     <td className="nowrap">{STAGES[r.stage].hasMicro || r.micro_release_date ? (r.micro_release_date ? fmtD(r.micro_release_date) : r.micro_remarks || "—") : <span className="small-muted">n/a</span>}</td>
                     <td><span className="qc-pill" style={{ background: STATE_COLOR[r._state] }}>{STATE_LABEL[r._state]}</span></td>
                     <td className="nowrap">{r._state === "released" ? one(totalDays(r), 0) : isWaiting(r._state) && age != null ? <span className={age >= 7 ? "due-over" : ""}>{age}</span> : ""}</td>
@@ -211,14 +211,14 @@ function Entries({ rows, preset, today, onOpen, onNew }) {
 
 function exportCsv(list) {
   const head = ["Stage", "Firm", "Date", "Item", "Quantity / batch size", "Batch no", "Mfg", "Exp", "Supplier", "Containers", "Bill no", "Sampling date", "Time received by QC", "Sampled by", "Tentative release", "QC release", "QC report", "QC remarks", "Assay", "Water/LOD", "Micro release", "Micro report", "Micro remarks", "Control release", "Final release", "Notes"];
-  const lines = list.map((r) => [STAGES[r.stage].title, r.firm_id, fmtD(r.entry_date), r.item_name, r.qty, r.batch_no, fmtM(r.mfg), fmtM(r.exp), r.supplier, r.containers, r.bill_no, fmtD(r.sampling_date), fmtT(r.sample_received_time), r.sampled_by, fmtD(r.tentative_release_date), fmtD(r.qc_release_date), r.qc_report_no, r.qc_remarks, r.assay, r.water_lod, fmtD(r.micro_release_date), r.micro_report_no, r.micro_remarks, fmtD(r.control_release_date), fmtD(r.final_release_date), r.notes]
+  const lines = list.map((r) => [STAGES[r.stage].title, r.firm_id, fmtD(r.entry_date), r.item_name, r.qty, r.batch_no, fmtM(r.mfg), fmtM(r.exp), r.supplier, r.containers, r.bill_no, fmtD(r.sampling_date), fmtT(r.sample_received_time), r.sampled_by, fmtD(r.tentative_release_date), fmtD(r.qc_release_date), r.qc_report_no, r.qc_remarks, r.assay, r.water_lod, fmtD(r.micro_tentative_date), fmtD(r.micro_release_date), r.micro_report_no, r.micro_remarks, fmtD(r.control_release_date), fmtD(r.final_release_date), r.notes]
     .map((v) => { let t = String(v ?? ""); if (/^[=+\-@]/.test(t)) t = "'" + t; return `"${t.replace(/"/g, '""')}"`; }).join(","));
   const blob = new Blob(["﻿" + [head.join(","), ...lines].join("\n")], { type: "text/csv" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `qc-release-${todayISO()}.csv`; a.click();
 }
 
 // ── Add / record result / edit ───────────────────────────────────────────
-const FIELDS = ["firm_id", "entry_date", "item_name", "qty", "containers", "supplier", "bill_no", "bill_date", "batch_no", "mfg", "exp", "sampling_date", "sample_received_time", "sampled_by", "tentative_release_date",
+const FIELDS = ["firm_id", "entry_date", "item_name", "qty", "containers", "supplier", "bill_no", "bill_date", "batch_no", "mfg", "exp", "sampling_date", "sample_received_time", "sampled_by", "tentative_release_date", "micro_tentative_date",
   "qc_release_date", "qc_report_no", "qc_remarks", "assay", "water_lod", "micro_release_date", "micro_report_no", "micro_remarks", "control_release_date", "final_release_date", "notes"];
 
 function EntryForm({ row, stage: stage0, rows, onClose, onSaved }) {
@@ -247,7 +247,7 @@ function EntryForm({ row, stage: stage0, rows, onClose, onSaved }) {
   const dupReport = f.qc_report_no.trim() && rows.some((r) => r.id !== row?.id && r.stage === stage && (r.qc_report_no || "").toLowerCase() === f.qc_report_no.trim().toLowerCase() && (stage !== "fp" || r.firm_id === (f.firm_id || null)));
   const dupBatch = f.batch_no.trim() && rows.some((r) => r.id !== row?.id && r.stage === stage && (r.batch_no || "").toLowerCase() === f.batch_no.trim().toLowerCase() && r.item_name.toLowerCase() === f.item_name.trim().toLowerCase());
 
-  const save = async () => {
+  const save = async (notify = false) => {
     if (busy) return;
     if (!f.item_name.trim()) { toast(`Type the ${st.item.toLowerCase()} name first.`, "err"); return; }
     if (!f.entry_date) { toast("Choose the date.", "err"); return; }
@@ -257,9 +257,14 @@ function EntryForm({ row, stage: stage0, rows, onClose, onSaved }) {
     FIELDS.forEach((k) => { const v = typeof f[k] === "string" ? f[k].trim() : f[k]; payload[k] = v === "" ? null : v; });
     if (payload.containers != null) payload.containers = parseInt(payload.containers, 10) || null;
     if (!isNew) payload.review_done = true;   // anything saved by hand has been looked at
-    const r = isNew
-      ? await run(supabase.from("hub_qc_releases").insert(payload), "Entry saved")
-      : await run(supabase.from("hub_qc_releases").update(payload).eq("id", row.id), "Saved");
+    let r;
+    if (isNew) {
+      r = await run(supabase.from("hub_qc_releases").insert(payload).select("id").single(), notify ? "Saved" : "Entry saved");
+      if (r.ok && notify && r.data?.id) { const t = await supabase.rpc("hub_qc_notify", { p_qc: r.data.id }); if (t.error) toast(t.error.message, "err"); else toast("Saved. QC has been told."); }
+    } else {
+      r = await run(supabase.from("hub_qc_releases").update(payload).eq("id", row.id), "Saved");
+      if (r.ok && notify) { const t = await supabase.rpc("hub_qc_notify", { p_qc: row.id }); if (t.error) toast(t.error.message, "err"); else toast("Saved. QC has been told."); }
+    }
     setBusy(false);
     if (r.ok) { onSaved(); onClose(); }
   };
@@ -276,7 +281,7 @@ function EntryForm({ row, stage: stage0, rows, onClose, onSaved }) {
   return (
     <Modal title={isNew ? "New QC entry" : `${st.title}: ${row.item_name}`} onClose={onClose} wide
       actions={<>{!isNew && isOwner && <button className="btn-danger" onClick={remove} style={{ marginRight: "auto" }}>Delete</button>}
-        <button className="btn-ghost" onClick={onClose}>Cancel</button><button className="btn-primary" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save"}</button></>}>
+        <button className="btn-ghost" onClick={onClose}>Cancel</button><button className="btn-primary" onClick={() => save(false)} disabled={busy}>{busy ? "Saving…" : "Save"}</button></>}>
       {isNew && (
         <div className="seg" style={{ marginBottom: 12 }}>
           {STAGE_KEYS.map((k) => <button key={k} className={stage === k ? "on" : ""} onClick={() => setStage(k)}>{STAGES[k].icon} {STAGES[k].title}</button>)}
@@ -312,6 +317,11 @@ function EntryForm({ row, stage: stage0, rows, onClose, onSaved }) {
         {stage !== "packing" && monthField("exp", "Exp (month)")}
       </div>
       {dupBatch && <div className="mt-dup">⚠️ This batch number is already recorded for {f.item_name.trim()}.</div>}
+      {(stage === "bulk" || stage === "fp") && (
+        <div className="bd-split" style={{ marginTop: 8 }}>
+          <button className="btn-primary sm" onClick={() => save(true)} disabled={busy}>{busy ? "Saving…" : row?.production_notified_at ? "Save and tell QC again" : "Save and tell QC"}</button>
+          <span className="small-muted" style={{ marginLeft: 10 }}>{row?.production_notified_at ? `QC was told on ${fmtD(row.production_notified_at.slice(0, 10))}.` : "Saves this entry and sends a notification to everyone with QC Release access, so they can collect the sample."}</span>
+        </div>)}
 
       <div className="qc-sec">2 · Sampling</div>
       <div className="form-grid">
@@ -337,6 +347,7 @@ function EntryForm({ row, stage: stage0, rows, onClose, onSaved }) {
           {dateField("micro_release_date", "Micro release date")}
           {stage !== "fp" && <Field label="Micro report no."><input className="form-inp" value={f.micro_report_no || ""} onChange={set("micro_report_no")} /></Field>}
           {remarkField("micro_remarks", "Micro remark")}
+          {dateField("micro_tentative_date", "Tentative date of micro release", "Set by the QC Head when the sample goes to Microbiology. It can differ from the actual date.")}
         </div>
       </>}
       {stage === "fp" && <>
