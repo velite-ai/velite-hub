@@ -30,6 +30,7 @@ export function cmpAlerts(cmpItems, me) {
 export default function MyDay({ go }) {
   const { me, isOwner, tasks, materials, comments, goals, goalItems, trademarks, cmpItems, cmpLib } = useData();
   const [edit, setEdit] = useState(null);
+  const isStaff = isOwner || me.role === "manager";
 
   const open = tasks.rows.filter((t) => !t.deleted_at && t.status !== "Done");
   const mine = open.filter((t) => isMine(t, me)).sort(byDue);
@@ -130,7 +131,7 @@ export default function MyDay({ go }) {
             </div>
           </div>
 
-          {(() => {
+          {isStaff && (() => {
             const tms = trademarks.rows.filter((t) => !t.deleted_at && tmDue(t) && tmDue(t).n <= 180).sort((a, b) => (a.deadline < b.deadline ? -1 : 1));
             return (
               <div className="section">
@@ -154,7 +155,7 @@ export default function MyDay({ go }) {
             return (
               <div className="section">
                 <div className="section-head"><div className="section-title">🛡️ Compliance — next 15 days</div>
-                  <button className="link-btn strong" onClick={() => go("compliance")}>Open →</button></div>
+                  {isStaff && <button className="link-btn strong" onClick={() => go("compliance")}>Open →</button>}</div>
                 <div className="side-list">
                   <div className="small-muted" style={{ marginBottom: 6 }}>{list.length} due{late ? <span className="due-over"> · {late} overdue</span> : ""}{toCheck.length ? ` · ${toCheck.length} filed, waiting for your check` : ""}</div>
                   {list.length === 0 && <div className="small-muted">Nothing due in the next 15 days.</div>}

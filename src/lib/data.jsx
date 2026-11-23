@@ -48,28 +48,29 @@ export const useData = () => useContext(DataCtx);
 
 export function DataProvider({ me, children }) {
   const isOwner = me.role === "owner";
+  const isStaff = isOwner || me.role === "manager"; // owners and managers see Compliance and Trademarks; members only their own compliance items
   const profiles = useTable("hub_profiles", { order: "full_name", ascending: true });
   const materials = useTable("hub_materials");
   const tasks = useTable("hub_tasks");
   const comments = useTable("hub_comments", { ascending: true });
   const goals = useTable("hub_goals", { enabled: isOwner });
   const goalItems = useTable("hub_goal_items", { enabled: isOwner, ascending: true });
-  const trademarks = useTable("hub_trademarks", { order: "mark", ascending: true });
-  const iprNotices = useTable("hub_ipr_notifications", { order: "notice_date" });
-  const iprThird = useTable("hub_ipr_third_party", { order: "client", ascending: true, columns: TP_COLS });
-  const iprDocs = useTable("hub_ipr_documents", { columns: DOC_COLS });
-  const iprMatters = useTable("hub_ipr_matters", { order: "due", ascending: true });
-  const iprOptions = useTable("hub_ipr_options", { order: "key", ascending: true });
+  const trademarks = useTable("hub_trademarks", { enabled: isStaff, order: "mark", ascending: true });
+  const iprNotices = useTable("hub_ipr_notifications", { enabled: isStaff, order: "notice_date" });
+  const iprThird = useTable("hub_ipr_third_party", { enabled: isStaff, order: "client", ascending: true, columns: TP_COLS });
+  const iprDocs = useTable("hub_ipr_documents", { enabled: isStaff, columns: DOC_COLS });
+  const iprMatters = useTable("hub_ipr_matters", { enabled: isStaff, order: "due", ascending: true });
+  const iprOptions = useTable("hub_ipr_options", { enabled: isStaff, order: "key", ascending: true });
   const cmpItems = useTable("hub_cmp_items", { order: "due_date", ascending: true });
   const cmpLib = useTable("hub_cmp_library", { order: "sort", ascending: true });
   const cmpFirms = useTable("hub_cmp_firms", { order: "sort", ascending: true });
-  const cmpAssign = useTable("hub_cmp_assign", { order: "code", ascending: true });
-  const cmpLic = useTable("hub_cmp_licences", { order: "next_due", ascending: true });
-  const chkPoints = useTable("hub_chk_points", { order: "sort", ascending: true });
-  const chkAnswers = useTable("hub_chk_answers", { order: "code", ascending: true });
+  const cmpAssign = useTable("hub_cmp_assign", { enabled: isStaff, order: "code", ascending: true });
+  const cmpLic = useTable("hub_cmp_licences", { enabled: isStaff, order: "next_due", ascending: true });
+  const chkPoints = useTable("hub_chk_points", { enabled: isStaff, order: "sort", ascending: true });
+  const chkAnswers = useTable("hub_chk_answers", { enabled: isStaff, order: "code", ascending: true });
   const notifs = useTable("hub_notifications", { order: "created_at", ascending: false });
-  const cmpDocs = useTable("hub_cmp_docs", { order: "created_at", ascending: true });
-  const chkHeads = useTable("hub_chk_heads", { order: "dept", ascending: true });
+  const cmpDocs = useTable("hub_cmp_docs", { enabled: isStaff, order: "created_at", ascending: true });
+  const chkHeads = useTable("hub_chk_heads", { enabled: isStaff, order: "dept", ascending: true });
 
   const value = { me, isOwner, profiles, materials, tasks, comments, goals, goalItems, trademarks,
     iprNotices, iprThird, iprDocs, iprMatters, iprOptions,
