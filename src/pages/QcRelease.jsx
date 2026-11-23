@@ -195,7 +195,7 @@ function Entries({ rows, preset, today, onOpen, onNew }) {
                     <td>{r.batch_no || r.supplier || "—"}{r.batch_no && r.supplier ? <small className="qc-sub"> {r.supplier}</small> : null}</td>
                     <td className="nowrap">{fmtD(r.sampling_date) || "—"}{r.sample_received_time && <small className="qc-sub"> {fmtT(r.sample_received_time)}</small>}{r.sampled_by && <small className="qc-sub"> {r.sampled_by}</small>}</td>
                     <td className="nowrap">{r.qc_release_date ? fmtD(r.qc_release_date) : tentativeFor(r) ? <span className={overdueDays(r, today) > 0 && isWaiting(r._state) ? "due-over" : "qc-sub"}>due {fmtD(tentativeFor(r)).slice(0, 5)}</span> : "—"}{r.qc_report_no && <small className="qc-sub"> {r.qc_report_no}</small>}</td>
-                    <td className="nowrap">{STAGES[r.stage].hasMicro || r.micro_release_date || r.micro_remarks ? (r.micro_release_date ? fmtD(r.micro_release_date) : r.micro_remarks || "—") : <span className="small-muted">n/a</span>}</td>
+                    <td className="nowrap">{STAGES[r.stage].hasMicro || r.micro_release_date ? (r.micro_release_date ? fmtD(r.micro_release_date) : r.micro_remarks || "—") : <span className="small-muted">n/a</span>}</td>
                     <td><span className="qc-pill" style={{ background: STATE_COLOR[r._state] }}>{STATE_LABEL[r._state]}</span></td>
                     <td className="nowrap">{r._state === "released" ? one(totalDays(r), 0) : isWaiting(r._state) && age != null ? <span className={age >= 7 ? "due-over" : ""}>{age}</span> : ""}</td>
                   </tr>);
@@ -341,7 +341,7 @@ function EntryForm({ row, stage: stage0, rows, onClose, onSaved }) {
       </div>
       {dupReport && <div className="mt-dup">⚠️ This QC report number is already used{stage === "fp" ? " for this firm" : ""}.</div>}
 
-      {(st.hasMicro || stage === "raw" || (stage === "bulk" && row && (row.micro_remarks || row.micro_release_date || row.micro_report_no))) && <>
+      {(st.hasMicro || stage === "raw") && <>
         <div className="qc-sec">4 · Microbiology result{stage === "raw" ? " (optional, only if tested)" : ""}</div>
         <div className="form-grid">
           {dateField("micro_release_date", "Micro release date")}
