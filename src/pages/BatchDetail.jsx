@@ -11,6 +11,12 @@ import { KINDS, MARKETS, normBatch, groupOf, letterOf, readBatchSheet } from "..
 // appears in QC Release as "not sampled yet". A batch planned in advance (numbers printed by the vendor) waits as "Planned".
 
 const PAGE = 50;
+// newest manufacturing month first; inside a month by firm and type, then by the running number (highest first), mother before children
+const serialOf = (r) => { const m = String(r.group_no || r.batch_no || "").match(/(\d+)\D*$/); return m ? +m[1] : 0; };
+const byOrder = (a, b) => ((a.mfg || "") !== (b.mfg || "") ? ((b.mfg || "") > (a.mfg || "") ? 1 : -1)
+  : a.firm_id !== b.firm_id ? (a.firm_id < b.firm_id ? 1 : -1)
+  : a.kind !== b.kind ? (a.kind < b.kind ? -1 : 1)
+  : (b.series_year || 0) - (a.series_year || 0) || serialOf(b) - serialOf(a) || ((a.child_letter || "A") < (b.child_letter || "A") ? -1 : 1));
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const addMonths = (iso, n) => { const d = new Date(`${iso}T00:00:00`); d.setMonth(d.getMonth() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`; };
 const qtyText = (b) => [b.pieces != null ? `${b.pieces.toLocaleString("en-IN")} pcs` : null, b.batch_size != null ? `${Number(b.batch_size)} ${b.batch_size_unit || ""}`.trim() : null].filter(Boolean).join(" · ");
@@ -90,7 +96,7 @@ function List({ rows, stateFor, onOpen }) {
     const s = q.trim().toLowerCase();
     return rows.filter((r) => r.status === "made" && (!firm || r.firm_id === firm) && (!kind || r.kind === kind) && (!month || monthKey(r.mfg) === month) && (!split || groupSize[gk(r)] > 1)
       && (!s || [r.product_name, r.batch_no, r.market, r.note, r.remarks_original].join(" ").toLowerCase().includes(s)))
-      .sort((a, b) => ((b.mfg || "") > (a.mfg || "") ? 1 : (b.mfg || "") < (a.mfg || "") ? -1 : (gk(a) === gk(b) ? ((a.child_letter || "A") < (b.child_letter || "A") ? -1 : 1) : (normBatch(b.group_no) > normBatch(a.group_no) ? 1 : -1))));
+      .sort(byOrder);
   }, [rows, firm, kind, month, split, q, groupSize]); // eslint-disable-line
   return (
     <>
