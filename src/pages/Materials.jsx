@@ -246,7 +246,8 @@ function AddRow({ list, cfg, open, onAdded }) {
   const { isOwner } = useData();
   const [name, setName] = useState("");
   const [pick, setPick] = useState(null);
-  const [firm, setFirm] = useState("");
+  const [firm, setFirm] = useState(() => { try { return localStorage.getItem("hub-mat-firm") || ""; } catch { return ""; } });
+  const [miss, setMiss] = useState(""); // which field is missing after pressing Add
   const [qty, setQty] = useState("");
   const [unit, setUnit] = useState(cfg.units[0]);
   const [reqBy, setReqBy] = useState("");
@@ -265,8 +266,10 @@ function AddRow({ list, cfg, open, onAdded }) {
   };
   const clear = () => { setPick(null); setName(""); };
   const add = async () => {
-    if (!name.trim() || busy) return;
-    if (!firm) { toast("Choose the firm (VP / VH / VI / VS).", "err"); return; }
+    if (busy) return;
+    if (!firm) { setMiss("firm"); toast("Choose the firm first (VP / VH / VI / VS).", "err"); return; }
+    if (!name.trim()) { setMiss("name"); toast("Type the material name first.", "err"); return; }
+    setMiss("");
     setBusy(true);
     const r = await run(supabase.from("hub_materials").insert({
       list_type: list, name: name.trim(), qty, unit: cfg.units.includes(unit) ? unit : cfg.units[0], required_by: reqBy || null, urgent,
@@ -278,12 +281,12 @@ function AddRow({ list, cfg, open, onAdded }) {
   return (
     <div className="mt-add">
       <div className="mt-add-row">
-        <select className="inp mt-firm" value={firm} onChange={(e) => { setFirm(e.target.value); setPick(null); }} style={firm ? { borderColor: FIRM_COLORS[firm], color: FIRM_COLORS[firm], fontWeight: 700 } : {}}>
+        <select className="inp mt-firm" value={firm} onChange={(e) => { setFirm(e.target.value); setPick(null); setMiss(""); try { localStorage.setItem("hub-mat-firm", e.target.value); } catch { /* ignore */ } }} style={firm ? { borderColor: FIRM_COLORS[firm], color: FIRM_COLORS[firm], fontWeight: 700 } : miss === "firm" ? { borderColor: "#dc2626", boxShadow: "0 0 0 2px #fecaca" } : {}}>
           <option value="">Firm…</option>{FIRMS.map((f) => <option key={f}>{f}</option>)}
         </select>
         <div className="mt-name">
-          <input className="inp" placeholder={`Type ${cfg.title.toLowerCase().replace(/s$/, "")} name — pick from purchase list…`} value={name}
-            onChange={(e) => { setName(e.target.value); setPick(null); setShow(true); }} onFocus={() => setShow(true)} onBlur={() => setTimeout(() => setShow(false), 200)}
+          <input className="inp" style={miss === "name" ? { borderColor: "#dc2626", boxShadow: "0 0 0 2px #fecaca" } : {}} placeholder={`Type ${cfg.title.toLowerCase().replace(/s$/, "")} name — pick from purchase list…`} value={name}
+            onChange={(e) => { setName(e.target.value); setPick(null); setShow(true); setMiss(""); }} onFocus={() => setShow(true)} onBlur={() => setTimeout(() => setShow(false), 200)}
             onKeyDown={(e) => e.key === "Enter" && !show && add()} />
           {pick && <button className="mt-clear" onClick={clear} title="Clear">✕</button>}
           {show && hits.length > 0 && (
@@ -310,6 +313,7 @@ function AddRow({ list, cfg, open, onAdded }) {
         <button className="add-btn" style={{ background: cfg.color }} onClick={add} disabled={busy}>＋ Add requirement</button>
       </div>
       {pick && <PvLine pv={pick} price={prices[pick.id]} />}
+      {miss && <div className="mt-dup" style={{ color: "#b91c1c" }}>{miss === "firm" ? "⚠️ Choose the firm (VP / VH / VI / VS) before adding." : "⚠️ Type the material name before adding."}</div>}
       {dup && <div className="mt-dup">⚠️ Already requested: <b>{dup.name}</b> {dup.qty && `· ${dup.qty} ${dup.unit}`} · by {dup.created_by_name} · {ST[dup.status].label}</div>}
     </div>
   );
