@@ -1,7 +1,7 @@
 // Batch Detail (production batch coding): rules and the one-time reader for the old "Batch Detail" Google Sheet.
 import { makeReaders, todayISO } from "./qc";
 
-export const KINDS = { other: "Other than tubes", tube: "Tubes" };
+export const KINDS = { other: "Other than tubes", tube: "Tubes only" };
 export const MARKETS = ["Nepal", "Yemen", "Export", "Philippines"];
 
 // A batch number compared loosely: capitals, dashes and leading zeros do not matter ("V-001A" = "v001a", "003" = "3").

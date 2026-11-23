@@ -97,7 +97,7 @@ function List({ rows, stateFor, onOpen }) {
       <div className="pg-search chk-noprint"><SearchBox value={q} onChange={(v) => { setQ(v); setShown(PAGE); }} placeholder="🔎 Search product, batch number, market, remarks…" />{q && <button className="btn-ghost" onClick={() => setQ("")}>Clear</button>}</div>
       <div className="qc-filters" style={{ marginBottom: 8 }}>
         <select className="inp inp-filter" value={firm} onChange={(e) => { setFirm(e.target.value); setShown(PAGE); }}><option value="">VP and VH</option><option>VP</option><option>VH</option></select>
-        <select className="inp inp-filter" value={kind} onChange={(e) => { setKind(e.target.value); setShown(PAGE); }}><option value="">Tubes and others</option>{Object.entries(KINDS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+        <select className="inp inp-filter" value={kind} onChange={(e) => { setKind(e.target.value); setShown(PAGE); }}><option value="">All types (tubes and other than tubes)</option>{Object.entries(KINDS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
         <select className="inp inp-filter" value={month} onChange={(e) => { setMonth(e.target.value); setShown(PAGE); }}><option value="">All months</option>{months.map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}</select>
         <label className="chk"><input type="checkbox" checked={split} onChange={(e) => { setSplit(e.target.checked); setShown(PAGE); }} /> Split batches only</label>
         <span className="small-muted">{list.length} batch{list.length === 1 ? "" : "es"}</span>
@@ -105,13 +105,14 @@ function List({ rows, stateFor, onOpen }) {
       {list.length === 0 ? <Empty>No batches match.</Empty> : (
         <div className="table-wrap">
           <table className="tbl qc-tbl">
-            <thead><tr><th>Batch</th><th>Product</th><th>Mfg</th><th>Exp</th><th>MRP</th><th>Quantity</th><th>Market / note</th><th>QC</th></tr></thead>
+            <thead><tr><th>Batch</th><th>Type</th><th>Product</th><th>Mfg</th><th>Exp</th><th>MRP</th><th>Quantity</th><th>Market / note</th><th>QC</th></tr></thead>
             <tbody>
               {list.slice(0, shown).map((r) => {
                 const st = stateFor(r); const n = groupSize[gk(r)];
                 return (
                   <tr key={r.id} className="qc-tr" onClick={() => onOpen(r)}>
                     <td className="nowrap"><span className="tk-firm" style={{ background: FIRM_COLORS[r.firm_id] }}>{r.firm_id}</span><b>{r.batch_no}</b>{n > 1 && <small className="qc-sub"> {r.child_letter === "A" || !r.child_letter ? "mother" : "child"} of {n}</small>}</td>
+                    <td className="nowrap"><small className="qc-sub">{r.kind === "tube" ? "Tubes only" : "Other than tubes"}</small></td>
                     <td>{r.product_name}{r.pack_size && <small className="qc-sub"> {r.pack_size}</small>}{(r.import_flags || []).length > 0 && !r.review_done && <span className="qc-flag" title={r.import_flags.join("\n")}>⚠</span>}</td>
                     <td className="nowrap">{fmtM(r.mfg)}</td><td className="nowrap">{fmtM(r.exp)}</td>
                     <td className="nowrap">{r.mrp != null ? `₹${Number(r.mrp).toLocaleString("en-IN", { maximumFractionDigits: 2 })}` : "—"}</td>
