@@ -329,6 +329,14 @@ function Check({ rows, products, onOpen, reload }) {
     setBusy(false); setDone({ added, total: prev.rows.length, products: newP.length, sync }); setPrev(null); reload();
     toast(`${added} batches imported`);
   };
+  const [linking, setLinking] = useState(false); const [linked, setLinked] = useState(null);
+  const doLink = async () => {
+    setLinking(true);
+    const { data, error } = await supabase.rpc("hub_batch_sync");
+    setLinking(false);
+    if (error) { toast(error.message, "err"); return; }
+    setLinked(data); reload(); toast("QC Release linked");
+  };
   const fine = async (r) => { const x = await run(supabase.from("hub_batches").update({ review_done: true }).eq("id", r.id), "Marked as checked"); if (x.ok) reload(); };
   const kids = prev ? prev.rows.filter((r) => r.legacy_ref.includes("#")).length : 0;
 
@@ -346,6 +354,12 @@ function Check({ rows, products, onOpen, reload }) {
             <button className="btn-primary" style={{ marginTop: 10 }} onClick={doImport} disabled={busy}>{busy ? "Importing… please wait" : `Import ${prev.rows.length} batches`}</button>
           </div>)}
         {done && <div className="mt-dup" style={{ background: "#ecfdf5", color: "#166534" }}>✅ Imported {done.added} of {done.total} batches ({done.total - done.added} were already there) and {done.products} new products. QC Release: {done.sync?.linked ?? 0} records linked, {done.sync?.created ?? 0} added as not sampled yet.</div>}
+      </div>
+      <div className="ipanel">
+        <div className="ipanel-head"><div><h3>🔗 Link with QC Release</h3>
+          <p>Ties each finished-product record in QC Release to its batch (same firm, batch number and manufacturing month), and adds recent batches that QC does not have yet as “not sampled yet”. Safe to press again.</p></div></div>
+        <button className="btn-primary" onClick={doLink} disabled={linking}>{linking ? "Linking…" : "Link now"}</button>
+        {linked && <div className="mt-dup" style={{ background: "#ecfdf5", color: "#166534" }}>✅ {linked.linked} QC records linked to their batches, {linked.created} batches added to QC Release as not sampled yet.</div>}
       </div>
       <div className="ipanel">
         <div className="ipanel-head"><div><h3>🔍 To check <span className="section-count">{flagged.length}</span></h3><p>Child batches read from the old Remarks, and rows with an odd date. Open one, correct it and save, or press “It is fine”.</p></div></div>
