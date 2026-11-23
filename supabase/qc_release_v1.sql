@@ -1,0 +1,14 @@
+-- QC Release register (24 Nov 2026) — replaces the "Material Release Table" Google Sheet.
+-- Applied as migrations hub_qc_release_v1 and hub_qc_release_v1b.
+-- Access: owners / managers, and members ticked "QC Release" in Admin (hub_profiles.qc_access). Everyone else sees nothing.
+-- Ticked members can see, add and edit; only owners delete (soft delete, recycle bin).
+--
+-- Tables / functions created:
+--   hub_profiles.qc_access boolean            hub_can_qc()            hub_admin_set_qc(user, on)
+--   hub_qc_releases (stage raw|packing|bulk|fp, firm_id, entry_date, item_name, qty, supplier, batch_no, mfg, exp, sampling_date, sampled_by,
+--                    qc_release_date, qc_report_no, qc_remarks, assay, water_lod, micro_*, control_release_date, final_release_date, notes,
+--                    import_flags, review_done, legacy_ref, created_/updated_/deleted_ columns)
+--   hub_qc_stamp() trigger: stamps who entered / changed a row and saves a supplier, item or person with the spelling already in use
+--   hub_purge / hub_bin_cleanup: now also cover hub_qc_releases
+-- The history is brought in by an owner from QC Release → Data check → "Bring in the old sheet" (Excel file, one time, safe to repeat).
+-- See the migrations for the full SQL.

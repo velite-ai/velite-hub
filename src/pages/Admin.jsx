@@ -36,6 +36,10 @@ function Users() {
     if (r.ok) profiles.reload();
   };
 
+  const setQc = async (p) => {
+    const r = await run(supabase.rpc("hub_admin_set_qc", { p_user: p.id, p_on: !p.qc_access }), "QC Release access updated");
+    if (r.ok) profiles.reload();
+  };
   const setMaterials = async (p, k) => {
     const cur = p.material_lists || [];
     const next = cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k];
@@ -57,7 +61,7 @@ function Users() {
       <div className="day-block-title" style={{ marginTop: 18 }}>Team</div>
       <div className="table-wrap">
         <table className="tbl">
-          <thead><tr><th>Name</th><th>Email / mobile</th><th>Role</th><th>Materials</th><th>Status</th><th>Approved</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>Email / mobile</th><th>Role</th><th>Materials</th><th>QC Release</th><th>Status</th><th>Approved</th><th></th></tr></thead>
           <tbody>
             {others.map((p) => (
               <tr key={p.id} className={p.status === "disabled" ? "row-off" : ""}>
@@ -77,6 +81,12 @@ function Users() {
                           <input type="checkbox" checked={(p.material_lists || []).includes(k)} onChange={() => setMaterials(p, k)} /> {l}
                         </label>))}
                     </div>)}
+                </td>
+                <td>
+                  {p.role === "owner" || p.role === "manager" ? <span className="small-muted">Yes</span> : (
+                    <label style={{ fontSize: 13 }} title="Can see, add and edit QC release records. Owners always see everything.">
+                      <input type="checkbox" checked={!!p.qc_access} onChange={() => setQc(p)} /> Can use
+                    </label>)}
                 </td>
                 <td>{p.status}</td>
                 <td className="small-muted">{p.approved_by_name ? `${p.approved_by_name}, ${fmtDateTime(p.approved_at)}` : "—"}</td>
@@ -198,10 +208,11 @@ function ResetPassword({ p, onClose }) {
 }
 
 function Bin() {
-  const { materials, tasks, goals, trademarks, iprNotices, iprThird, iprDocs, iprMatters, isOwner } = useData();
+  const { materials, tasks, goals, trademarks, iprNotices, iprThird, iprDocs, iprMatters, qc, isOwner } = useData();
   const [ask, dialog] = useConfirm();
   const items = [
     ...materials.rows.filter((r) => r.deleted_at).map((r) => ({ ...r, _type: "material", _table: "hub_materials", _label: r.name, _kind: r.list_type === "rm" ? "Raw material" : "Packing material" })),
+    ...qc.rows.filter((r) => r.deleted_at).map((r) => ({ ...r, _type: "qc", _table: "hub_qc_releases", _label: r.item_name, _kind: "QC release record" })),
     ...tasks.rows.filter((r) => r.deleted_at).map((r) => ({ ...r, _type: "task", _table: "hub_tasks", _label: r.title, _kind: "Task" })),
     ...trademarks.rows.filter((r) => r.deleted_at).map((r) => ({ ...r, _type: "trademark", _table: "hub_trademarks", _label: r.mark, _kind: "Trademark" })),
     ...iprNotices.rows.filter((r) => r.deleted_at).map((r) => ({ ...r, _type: "ipr_notice", _table: "hub_ipr_notifications", _label: (r.summary || "").slice(0, 60), _kind: "IPR notification" })),
@@ -211,7 +222,7 @@ function Bin() {
     ...(isOwner ? goals.rows.filter((r) => r.deleted_at).map((r) => ({ ...r, _type: "goal", _table: "hub_goals", _label: r.title, _kind: "Goal" })) : []),
   ].sort((a, b) => (a.deleted_at < b.deleted_at ? 1 : -1));
 
-  const reloadAll = () => { [materials, tasks, goals, trademarks, iprNotices, iprThird, iprDocs, iprMatters].forEach((t) => t.reload()); };
+  const reloadAll = () => { [materials, tasks, goals, trademarks, iprNotices, iprThird, iprDocs, iprMatters, qc].forEach((t) => t.reload()); };
   const restore = async (it) => { const r = await run(supabase.from(it._table).update({ deleted_at: null }).eq("id", it.id), "Restored"); if (r.ok) reloadAll(); };
   const purge = async (it) => {
     if (!(await ask({ title: "Delete forever?", body: `"${it._label}" and its comments will be permanently removed. This cannot be undone.`, okText: "Delete forever", danger: true }))) return;
