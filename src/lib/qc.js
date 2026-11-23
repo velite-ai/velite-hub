@@ -60,7 +60,8 @@ export const avg = (xs) => { const a = xs.filter((x) => x != null); return a.len
 
 // the QC Head's tentative date of release against what happened
 export const tentativeGap = (r) => { const a = releaseDate(r); return r.tentative_release_date && a ? daysBetween(r.tentative_release_date, a) : null; }; // + = later than planned
-export const overdueDays = (r, today) => (r.tentative_release_date && r.tentative_release_date < today ? daysBetween(r.tentative_release_date, today) : null);
+export const tentativeFor = (r) => (r.qc_release_date && !r.micro_release_date && r.micro_tentative_date ? r.micro_tentative_date : r.tentative_release_date); // once QC is done and micro is waiting, the micro date counts
+export const overdueDays = (r, today) => { const t = tentativeFor(r); return t && t < today ? daysBetween(t, today) : null; };
 
 // checks shown to the person filling the form
 export function warningsFor(f) {

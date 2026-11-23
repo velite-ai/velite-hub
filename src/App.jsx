@@ -71,8 +71,9 @@ function Bell({ alerts, go }) {
     if (n.entity_type === "task" && n.entity_id) window.location.hash = `tasks/${n.entity_id}`;
     if (n.entity_type === "material") window.location.hash = "materials";
     if (n.entity_type === "goal") window.location.hash = "compass";
+    if (n.entity_type === "qc") window.location.hash = "qc";
   };
-  const icon = { assigned: "📌", helper: "🤝", moved: "↪️", status: "🔄", done: "✅", comment: "💬", due: "⏰", overdue: "🔴", escalated: "⬆️", material: "📦", goal: "🧭" };
+  const icon = { assigned: "📌", helper: "🤝", moved: "↪️", status: "🔄", done: "✅", comment: "💬", due: "⏰", overdue: "🔴", escalated: "⬆️", material: "📦", goal: "🧭", qc: "🧪" };
   const n = unread.length + alerts;
   return (
     <div className="bell-wrap">
