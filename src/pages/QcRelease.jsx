@@ -32,7 +32,7 @@ export default function QcRelease() {
       <div className="mt-hero qc-hero">
         <div>
           <div className="mt-hero-title">🧪 QC Release</div>
-          <div className="mt-hero-sub">Raw → Packing → Bulk → Finished product · sampled, QC released, Microbiology released · replaces the Material Release sheet</div>
+          <div className="mt-hero-sub">Raw → Packing → Bulk → Finished product · sampled, QC released, Microbiology released (finished products) · replaces the Material Release sheet</div>
         </div>
         <button className="qc-add" onClick={() => setEdit({ stage: "fp" })}>＋ New entry</button>
       </div>
@@ -342,7 +342,7 @@ function EntryForm({ row, stage: stage0, rows, onClose, onSaved }) {
       {dupReport && <div className="mt-dup">⚠️ This QC report number is already used{stage === "fp" ? " for this firm" : ""}.</div>}
 
       {(st.hasMicro || stage === "raw") && <>
-        <div className="qc-sec">4 · Microbiology result{stage === "raw" ? " (only if tested)" : ""}</div>
+        <div className="qc-sec">4 · Microbiology result{stage === "raw" ? " (optional, only if tested)" : ""}</div>
         <div className="form-grid">
           {dateField("micro_release_date", "Micro release date")}
           {stage !== "fp" && <Field label="Micro report no."><input className="form-inp" value={f.micro_report_no || ""} onChange={set("micro_report_no")} /></Field>}
