@@ -62,10 +62,18 @@ function Users() {
       {pending.map((p) => <PendingRow key={p.id} p={p} onApprove={(role) => setUser(p, role, "approved", `${p.full_name} approved`)}
         onReject={async () => { if (await ask({ title: `Reject ${p.full_name}?`, body: "They will not be able to use Velite Hub.", okText: "Reject", danger: true })) setUser(p, "member", "disabled", "Rejected"); }} />)}
 
+      <div className="ac-legend">
+        <b>Who can open what</b>
+        <div><span className="ac-chip ac-all">Opens everything</span> owners and managers see all of Materials, QC Release and Batch Detail. Nothing to tick.</div>
+        <div><b>Materials:</b> tick Raw and/or Packing to show the list. No tick, no Materials tab.</div>
+        <div><b>QC Release:</b> tick <i>Allow QC Release</i> for QC staff. They see, add and edit QC records. They also see Batch Detail, but only to look.</div>
+        <div><b>Batch Detail:</b> tick <i>Allow adding and editing</i> for production staff who enter batches. A person with no tick in QC Release or Batch Detail does not see the Batch Detail tab.</div>
+        <div className="small-muted">Changes save at once. The person sees them after reloading the Hub.</div>
+      </div>
       <div className="day-block-title" style={{ marginTop: 18 }}>Team</div>
       <div className="table-wrap">
         <table className="tbl">
-          <thead><tr><th>Name</th><th>Email / mobile</th><th>Role</th><th>Materials</th><th>QC Release</th><th>Batch Detail</th><th>Status</th><th>Approved</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>Email / mobile</th><th>Role</th><th>Materials<small className="ac-th">tick the lists they may open</small></th><th>QC Release<small className="ac-th">test results of materials, bulk and products</small></th><th>Batch Detail<small className="ac-th">production batches</small></th><th>Status</th><th>Approved</th><th></th></tr></thead>
           <tbody>
             {others.map((p) => (
               <tr key={p.id} className={p.status === "disabled" ? "row-off" : ""}>
@@ -78,8 +86,9 @@ function Users() {
                   </select>
                 </td>
                 <td>
-                  {p.role === "owner" || p.role === "manager" ? <span className="small-muted">Both lists</span> : (
+                  {p.role === "owner" || p.role === "manager" ? <span className="ac-chip ac-all">Opens everything</span> : (
                     <div title="Can see and add to these material lists. Without a tick, Materials is hidden for this person.">
+                      {(p.material_lists || []).length ? <span className="ac-chip ac-on">Can see and add</span> : <span className="ac-chip ac-off">Cannot open Materials</span>}
                       {[["rm", "Raw"], ["pm", "Packing"]].map(([k, l]) => (
                         <label key={k} style={{ display: "block", fontSize: 13 }}>
                           <input type="checkbox" checked={(p.material_lists || []).includes(k)} onChange={() => setMaterials(p, k)} /> {l}
@@ -87,16 +96,22 @@ function Users() {
                     </div>)}
                 </td>
                 <td>
-                  {p.role === "owner" || p.role === "manager" ? <span className="small-muted">Yes</span> : (
-                    <label style={{ fontSize: 13 }} title="Can see, add and edit QC release records. Owners always see everything.">
-                      <input type="checkbox" checked={!!p.qc_access} onChange={() => setQc(p)} /> Can use
-                    </label>)}
+                  {p.role === "owner" || p.role === "manager" ? <span className="ac-chip ac-all">Opens everything</span> : (
+                    <>
+                      {p.qc_access ? <span className="ac-chip ac-on">Can see, add and edit</span> : <span className="ac-chip ac-off">Cannot open</span>}
+                      <label style={{ fontSize: 13, display: "block" }} title="Tick to let this person use QC Release.">
+                        <input type="checkbox" checked={!!p.qc_access} onChange={() => setQc(p)} /> Allow QC Release
+                      </label>
+                    </>)}
                 </td>
                 <td>
-                  {p.role === "owner" || p.role === "manager" ? <span className="small-muted">Yes</span> : (
-                    <label style={{ fontSize: 13 }} title="Production staff: can add and edit batches. QC staff can already look at Batch Detail.">
-                      <input type="checkbox" checked={!!p.batch_access} onChange={() => setBatch(p)} /> Can edit
-                    </label>)}
+                  {p.role === "owner" || p.role === "manager" ? <span className="ac-chip ac-all">Opens everything</span> : (
+                    <>
+                      {p.batch_access ? <span className="ac-chip ac-on">Can add and edit</span> : p.qc_access ? <span className="ac-chip ac-view">View only (because of QC Release)</span> : <span className="ac-chip ac-off">Cannot open</span>}
+                      <label style={{ fontSize: 13, display: "block" }} title="Tick for production staff who enter batches. QC staff can already look at batches without this tick.">
+                        <input type="checkbox" checked={!!p.batch_access} onChange={() => setBatch(p)} /> Allow adding and editing
+                      </label>
+                    </>)}
                 </td>
                 <td>{p.status}</td>
                 <td className="small-muted">{p.approved_by_name ? `${p.approved_by_name}, ${fmtDateTime(p.approved_at)}` : "—"}</td>
