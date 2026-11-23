@@ -98,7 +98,7 @@ function Bell({ alerts, go }) {
 
 const TABS = [
   { k: "myday", label: "🏠 My Day" },
-  { k: "materials", label: "📦 Materials" },
+  { k: "materials", label: "📦 Materials", mat: true },
   { k: "tasks", label: "✅ Tasks" },
   { k: "compliance", label: "🛡️ Compliance", staff: true },
   { k: "ipr", label: "⚖️ Trademarks", staff: true },
@@ -115,9 +115,8 @@ function useHashTab(allowed) {
 }
 
 function Shell({ onSignOut, reloadMe }) {
-  const { me, isOwner, tasks, profiles, cmpItems } = useData();
-  const isStaff = isOwner || me.role === "manager";
-  const tabs = TABS.filter((t) => (!t.owner || isOwner) && (!t.staff || isStaff));
+  const { me, isOwner, isStaff, matLists, tasks, profiles, cmpItems } = useData();
+  const tabs = TABS.filter((t) => (!t.owner || isOwner) && (!t.staff || isStaff) && (!t.mat || matLists.length > 0));
   const [tab, go] = useHashTab(tabs.map((t) => t.k));
   const [acct, setAcct] = useState(false);
   const alerts = myAlerts(tasks, me) + cmpAlerts(cmpItems, me);
@@ -147,7 +146,7 @@ function Shell({ onSignOut, reloadMe }) {
       </div>
       <div className="page">
         {tab === "myday" && <MyDay go={go} />}
-        {tab === "materials" && <Materials />}
+        {tab === "materials" && matLists.length > 0 && <Materials />}
         {tab === "tasks" && <Tasks />}
         {tab === "compliance" && isStaff && <Compliance />}
         {tab === "ipr" && isStaff && <Trademarks />}

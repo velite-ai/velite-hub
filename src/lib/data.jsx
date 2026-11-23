@@ -50,7 +50,8 @@ export function DataProvider({ me, children }) {
   const isOwner = me.role === "owner";
   const isStaff = isOwner || me.role === "manager"; // owners and managers see Compliance and Trademarks; members only their own compliance items
   const profiles = useTable("hub_profiles", { order: "full_name", ascending: true });
-  const materials = useTable("hub_materials");
+  const matLists = isStaff ? ["rm", "pm"] : (me.material_lists || []); // which material lists this person may see and add to
+  const materials = useTable("hub_materials", { enabled: matLists.length > 0 });
   const tasks = useTable("hub_tasks");
   const comments = useTable("hub_comments", { ascending: true });
   const goals = useTable("hub_goals", { enabled: isOwner });
@@ -72,7 +73,7 @@ export function DataProvider({ me, children }) {
   const cmpDocs = useTable("hub_cmp_docs", { enabled: isStaff, order: "created_at", ascending: true });
   const chkHeads = useTable("hub_chk_heads", { enabled: isStaff, order: "dept", ascending: true });
 
-  const value = { me, isOwner, profiles, materials, tasks, comments, goals, goalItems, trademarks,
+  const value = { me, isOwner, isStaff, matLists, profiles, materials, tasks, comments, goals, goalItems, trademarks,
     iprNotices, iprThird, iprDocs, iprMatters, iprOptions,
     cmpItems, cmpLib, cmpFirms, cmpAssign, cmpLic, chkPoints, chkAnswers, chkHeads, cmpDocs, notifs };
   return <DataCtx.Provider value={value}>{children}</DataCtx.Provider>;

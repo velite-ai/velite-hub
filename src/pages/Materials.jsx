@@ -42,8 +42,8 @@ function usePv(ids, isOwner) {
 }
 
 export default function Materials() {
-  const { materials, isOwner } = useData();
-  const [list, setList] = useState(() => localStorage.getItem("hub-mat-list") || "rm");
+  const { materials, isOwner, matLists } = useData();
+  const [list, setList] = useState(() => { const s = localStorage.getItem("hub-mat-list"); return matLists.includes(s) ? s : matLists[0] || "rm"; });
   const [view, setView] = useState("list");
   const [stage, setStage] = useState("open");
   const [firm, setFirm] = useState("");
@@ -145,7 +145,7 @@ export default function Materials() {
 
       <div className="mt-bar">
         <div className="seg">
-          {Object.entries(LISTS).map(([k, v]) => {
+          {Object.entries(LISTS).filter(([k]) => matLists.includes(k)).map(([k, v]) => {
             const n = all.filter((m) => m.list_type === k && m.status !== "received").length;
             return <button key={k} className={list === k ? "on" : ""} onClick={() => pickList(k)}>{v.icon} {v.title} <span className="fcount">{n}</span></button>;
           })}
