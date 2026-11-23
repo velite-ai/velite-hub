@@ -182,6 +182,7 @@ export function readOldSheet(XLSX, buffer) {
     }
   };
   tidy("supplier"); tidy("sampled_by"); tidy("item_name", true);
-  for (const o of out) for (const k of Object.keys(o)) if (o[k] === null || (Array.isArray(o[k]) && !o[k].length)) delete o[k];
+  // empty values are left out, except the flag list and the checked marker, which every row must carry
+  for (const o of out) { for (const k of Object.keys(o)) if (o[k] === null) delete o[k]; o.import_flags = o.import_flags || []; o.review_done = false; }
   return { rows: out, notes: seen };
 }
