@@ -81,7 +81,7 @@ const txt = (c) => { const t = clean(c && (c.w ?? c.v)); return NA.has(t.toLower
 const pad = (n) => String(n).padStart(2, "0");
 const iso = (y, m, d) => { const dt = new Date(Date.UTC(y, m - 1, d)); return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d ? `${y}-${pad(m)}-${pad(d)}` : null; };
 
-function makeReaders(XLSX) {
+export function makeReaders(XLSX) {
   const isDateCell = (c) => c && typeof c.v === "number" && c.z && XLSX.SSF.is_date(c.z);
   // a date typed day/month but stored month/day (cell format starts with the month) is turned back
   const monthFirst = (z) => /^\[?\$?-?[a-z0-9]*\]?\s*m{1,2}\s*[/.-]\s*d{1,2}/i.test(String(z || "")) && !/^d/i.test(String(z));
