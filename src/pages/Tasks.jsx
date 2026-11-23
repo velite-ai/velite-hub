@@ -526,7 +526,7 @@ function Desk({ q, live, people, cardProps, onOpen, onReload, onPick }) {
       <div className="dk-lane dk-people">
         <div className="dk-head">
           <div>
-            <h2>{isOwner ? "Tasks given to people" : "Tasks I can see for others"}</h2>
+            <h2>{isOwner ? "Tasks given to people" : "Tasks I gave to others"}</h2>
             <div className="dk-sub">Needs attention first. Tap a name to see their tasks.</div>
           </div>
           <div className="dk-sort chk-noprint">
