@@ -12,3 +12,6 @@
 --   hub_purge / hub_bin_cleanup: now also cover hub_qc_releases
 -- The history is brought in by an owner from QC Release → Data check → "Bring in the old sheet" (Excel file, one time, safe to repeat).
 -- See the migrations for the full SQL.
+
+-- v2 (24 Nov 2026): hub_qc_releases.tentative_release_date (date; set by the QC Head when a finished-product sample is handed over)
+--                   hub_qc_releases.sample_received_time (time; the time QC received the sample, kept with the sampling date)

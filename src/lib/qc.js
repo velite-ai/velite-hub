@@ -16,6 +16,7 @@ export const todayISO = () => { const d = new Date(); return `${d.getFullYear()}
 const toDate = (s) => (s ? new Date(`${s}T00:00:00`) : null);
 export const daysBetween = (a, b) => (a && b ? Math.round((toDate(b) - toDate(a)) / 86400000) : null);
 export const fmtD = (s) => (s ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : "");
+export const fmtT = (t) => (t ? String(t).slice(0, 5) : "");
 export const fmtM = (s) => (s ? `${s.slice(5, 7)}/${s.slice(2, 4)}` : "");
 export const monthKey = (s) => (s ? s.slice(0, 7) : null);
 export const monthLabel = (k) => { const [y, m] = k.split("-"); return `${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][+m - 1]} ${y.slice(2)}`; };
@@ -57,12 +58,17 @@ export function totalDays(r) { const d = daysBetween(r.sampling_date, releaseDat
 export const median = (xs) => { const a = xs.filter((x) => x != null).sort((p, q) => p - q); if (!a.length) return null; const m = a.length >> 1; return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
 export const avg = (xs) => { const a = xs.filter((x) => x != null); return a.length ? a.reduce((s, x) => s + x, 0) / a.length : null; };
 
+// the QC Head's tentative date of release against what happened
+export const tentativeGap = (r) => { const a = releaseDate(r); return r.tentative_release_date && a ? daysBetween(r.tentative_release_date, a) : null; }; // + = later than planned
+export const overdueDays = (r, today) => (r.tentative_release_date && r.tentative_release_date < today ? daysBetween(r.tentative_release_date, today) : null);
+
 // checks shown to the person filling the form
 export function warningsFor(f) {
   const w = [];
   if (f.sampling_date && f.entry_date && f.sampling_date < f.entry_date) w.push("Sampling date is before the date received.");
   if (f.sampling_date && f.qc_release_date && f.qc_release_date < f.sampling_date) w.push("QC release date is before the sampling date.");
   if (f.qc_release_date && f.micro_release_date && f.micro_release_date < f.sampling_date) w.push("Micro release date is before the sampling date.");
+  if (f.tentative_release_date && f.sampling_date && f.tentative_release_date < f.sampling_date) w.push("Tentative release date is before the sampling date.");
   if (f.mfg && f.exp && f.exp < f.mfg) w.push("Expiry is before the manufacturing month.");
   if (f.qc_release_date && !f.qc_remarks) w.push("Add the QC remark (Approved / Not approved / On hold).");
   return w;
