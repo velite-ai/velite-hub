@@ -5,7 +5,7 @@ import { Modal, Field, Empty, SearchBox, useConfirm } from "../components/ui";
 import { FIRM_COLORS } from "./compliance/common";
 import {
   STAGES, STAGE_KEYS, FIRMS, REMARKS, STATE_LABEL, STATE_COLOR, stateOf, isWaiting, releaseDate, qcDays, totalDays, median, avg,
-  fmtD, fmtM, monthKey, monthLabel, todayISO, daysBetween, addDays, warningsFor, readOldSheet,
+  fmtD, fmtM, fmtT, tentativeGap, overdueDays, monthKey, monthLabel, todayISO, daysBetween, addDays, warningsFor, readOldSheet,
 } from "../lib/qc";
 
 // QC Release register: replaces the "Material Release Table" Google Sheet.
@@ -98,7 +98,7 @@ function Board({ rows, today, goList, onOpen }) {
 
       <div className="qc-two">
         <div className="ipanel">
-          <div className="ipanel-head"><div><h3>⏳ Waiting now</h3><p>Oldest first. Press “Record result” when the QC or Microbiology result is ready.</p></div></div>
+          <div className="ipanel-head"><div><h3>⏳ Waiting now</h3><p>Oldest first. Press “Record result” when the QC or Microbiology result is ready.{(() => { const n = queue.filter((r) => overdueDays(r, today) > 0).length; return n ? <b className="due-over"> {n} past the QC Head’s tentative date.</b> : null; })()}</p></div></div>
           {queue.length === 0 && <Empty>Nothing is waiting. 🎉</Empty>}
           {queue.slice(0, 12).map((r) => <QueueRow key={r.id} r={r} today={today} onOpen={onOpen} />)}
           {queue.length > 12 && <button className="link-btn" onClick={() => goList({ state: "waiting" })}>Show all {queue.length} →</button>}
@@ -127,6 +127,7 @@ function QueueRow({ r, today, onOpen }) {
         <b>{r.firm_id && <span className="tk-firm" style={{ background: FIRM_COLORS[r.firm_id] }}>{r.firm_id}</span>}{r.item_name}</b>
         <small>{STAGES[r.stage].short}{r.batch_no ? ` · batch ${r.batch_no}` : ""}{r.sampled_by ? ` · sampled by ${r.sampled_by}` : ""}</small>
       </span>
+      {r.tentative_release_date && <span className={`qc-tent ${overdueDays(r, today) > 0 ? "late" : ""}`} title="Tentative date of release set by the QC Head">due {fmtD(r.tentative_release_date).slice(0, 5)}{overdueDays(r, today) > 0 ? ` · ${overdueDays(r, today)} d late` : ""}</span>}
       <span className="qc-pill" style={{ background: STATE_COLOR[r._state] }}>{STATE_LABEL[r._state]}</span>
       <span className={`qc-age ${late ? "late" : ""}`}>{age != null ? `${age} d` : ""}</span>
       <button className="btn-ghost sm" onClick={() => onOpen(r)}>Record result</button>
@@ -191,8 +192,8 @@ function Entries({ rows, preset, today, onOpen, onNew }) {
                     <td><span className="qc-dot" style={{ background: STAGES[r.stage].color }} />{r.firm_id && <span className="tk-firm" style={{ background: FIRM_COLORS[r.firm_id] }}>{r.firm_id}</span>}<b>{r.item_name}</b>{r.qty && <small className="qc-sub"> {r.qty}</small>}
                       {(r.import_flags || []).length > 0 && !r.review_done && <span title={r.import_flags.join("\n")} className="qc-flag">⚠</span>}</td>
                     <td>{r.batch_no || r.supplier || "—"}{r.batch_no && r.supplier ? <small className="qc-sub"> {r.supplier}</small> : null}</td>
-                    <td className="nowrap">{fmtD(r.sampling_date) || "—"}{r.sampled_by && <small className="qc-sub"> {r.sampled_by}</small>}</td>
-                    <td className="nowrap">{r.qc_release_date ? fmtD(r.qc_release_date) : "—"}{r.qc_report_no && <small className="qc-sub"> {r.qc_report_no}</small>}</td>
+                    <td className="nowrap">{fmtD(r.sampling_date) || "—"}{r.sample_received_time && <small className="qc-sub"> {fmtT(r.sample_received_time)}</small>}{r.sampled_by && <small className="qc-sub"> {r.sampled_by}</small>}</td>
+                    <td className="nowrap">{r.qc_release_date ? fmtD(r.qc_release_date) : r.tentative_release_date ? <span className={overdueDays(r, today) > 0 && isWaiting(r._state) ? "due-over" : "qc-sub"}>due {fmtD(r.tentative_release_date).slice(0, 5)}</span> : "—"}{r.qc_report_no && <small className="qc-sub"> {r.qc_report_no}</small>}</td>
                     <td className="nowrap">{STAGES[r.stage].hasMicro || r.micro_release_date ? (r.micro_release_date ? fmtD(r.micro_release_date) : r.micro_remarks || "—") : <span className="small-muted">n/a</span>}</td>
                     <td><span className="qc-pill" style={{ background: STATE_COLOR[r._state] }}>{STATE_LABEL[r._state]}</span></td>
                     <td className="nowrap">{r._state === "released" ? one(totalDays(r), 0) : isWaiting(r._state) && age != null ? <span className={age >= 7 ? "due-over" : ""}>{age}</span> : ""}</td>
@@ -208,15 +209,15 @@ function Entries({ rows, preset, today, onOpen, onNew }) {
 }
 
 function exportCsv(list) {
-  const head = ["Stage", "Firm", "Date", "Item", "Quantity / batch size", "Batch no", "Mfg", "Exp", "Supplier", "Containers", "Bill no", "Sampling date", "Sampled by", "QC release", "QC report", "QC remarks", "Assay", "Water/LOD", "Micro release", "Micro report", "Micro remarks", "Control release", "Final release", "Notes"];
-  const lines = list.map((r) => [STAGES[r.stage].title, r.firm_id, fmtD(r.entry_date), r.item_name, r.qty, r.batch_no, fmtM(r.mfg), fmtM(r.exp), r.supplier, r.containers, r.bill_no, fmtD(r.sampling_date), r.sampled_by, fmtD(r.qc_release_date), r.qc_report_no, r.qc_remarks, r.assay, r.water_lod, fmtD(r.micro_release_date), r.micro_report_no, r.micro_remarks, fmtD(r.control_release_date), fmtD(r.final_release_date), r.notes]
+  const head = ["Stage", "Firm", "Date", "Item", "Quantity / batch size", "Batch no", "Mfg", "Exp", "Supplier", "Containers", "Bill no", "Sampling date", "Time received by QC", "Sampled by", "Tentative release", "QC release", "QC report", "QC remarks", "Assay", "Water/LOD", "Micro release", "Micro report", "Micro remarks", "Control release", "Final release", "Notes"];
+  const lines = list.map((r) => [STAGES[r.stage].title, r.firm_id, fmtD(r.entry_date), r.item_name, r.qty, r.batch_no, fmtM(r.mfg), fmtM(r.exp), r.supplier, r.containers, r.bill_no, fmtD(r.sampling_date), fmtT(r.sample_received_time), r.sampled_by, fmtD(r.tentative_release_date), fmtD(r.qc_release_date), r.qc_report_no, r.qc_remarks, r.assay, r.water_lod, fmtD(r.micro_release_date), r.micro_report_no, r.micro_remarks, fmtD(r.control_release_date), fmtD(r.final_release_date), r.notes]
     .map((v) => { let t = String(v ?? ""); if (/^[=+\-@]/.test(t)) t = "'" + t; return `"${t.replace(/"/g, '""')}"`; }).join(","));
   const blob = new Blob(["﻿" + [head.join(","), ...lines].join("\n")], { type: "text/csv" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `qc-release-${todayISO()}.csv`; a.click();
 }
 
 // ── Add / record result / edit ───────────────────────────────────────────
-const FIELDS = ["firm_id", "entry_date", "item_name", "qty", "containers", "supplier", "bill_no", "bill_date", "batch_no", "mfg", "exp", "sampling_date", "sampled_by",
+const FIELDS = ["firm_id", "entry_date", "item_name", "qty", "containers", "supplier", "bill_no", "bill_date", "batch_no", "mfg", "exp", "sampling_date", "sample_received_time", "sampled_by", "tentative_release_date",
   "qc_release_date", "qc_report_no", "qc_remarks", "assay", "water_lod", "micro_release_date", "micro_report_no", "micro_remarks", "control_release_date", "final_release_date", "notes"];
 
 function EntryForm({ row, stage: stage0, rows, onClose, onSaved }) {
@@ -302,6 +303,8 @@ function EntryForm({ row, stage: stage0, rows, onClose, onSaved }) {
       <div className="qc-sec">2 · Sampling</div>
       <div className="form-grid">
         {dateField("sampling_date", "Sampling date")}
+        <Field label="Time received by QC"><input className="form-inp" type="time" value={f.sample_received_time ? String(f.sample_received_time).slice(0, 5) : ""} onChange={set("sample_received_time")} /></Field>
+        {stage === "fp" && dateField("tentative_release_date", "Tentative date of release", "Set by the QC Head when the sample is handed over. It can differ from the actual date.")}
         <Field label="Sampled by"><input className="form-inp" list="qc-people" value={f.sampled_by || ""} onChange={set("sampled_by")} /><datalist id="qc-people">{people.map((x) => <option key={x} value={x} />)}</datalist></Field>
       </div>
 
@@ -404,6 +407,8 @@ function Insights({ rows, today, isOwner }) {
           </div>))}
       </div>
 
+      <TentativePanel rows={base} today={today} />
+
       <div className="ipanel">
         <div className="ipanel-head"><div><h3>🐢 Slowest releases, last 90 days</h3><p>The batches that took longest from sampling to release.</p></div></div>
         {slow.length === 0 && <Empty>No data in the last 90 days.</Empty>}
@@ -416,6 +421,32 @@ function Insights({ rows, today, isOwner }) {
           {peopleList.map(([n, c]) => <div key={n} className="mt-hbar"><span>{n}</span><div><i style={{ width: `${(100 * c) / maxP}%`, background: "#1a6fa8" }} /></div><b>{c}</b></div>)}
         </div>)}
     </>
+  );
+}
+
+// finished products: the QC Head's tentative date of release against the actual release
+function TentativePanel({ rows, today }) {
+  const since = addDays(today, -90);
+  const done = rows.filter((r) => r.stage === "fp" && r.tentative_release_date && r.sampling_date && r.sampling_date >= since && tentativeGap(r) != null);
+  const open = rows.filter((r) => r.stage === "fp" && isWaiting(r._state) && overdueDays(r, today) > 0);
+  const onTime = done.filter((r) => tentativeGap(r) <= 0).length;
+  const late = done.filter((r) => tentativeGap(r) > 0);
+  const gaps = done.map(tentativeGap);
+  const buckets = [["Earlier than planned", (g) => g < 0], ["On the planned day", (g) => g === 0], ["1 to 2 days late", (g) => g >= 1 && g <= 2], ["3 or more days late", (g) => g >= 3]].map(([l, f]) => [l, gaps.filter(f).length]);
+  const max = Math.max(1, ...buckets.map((b) => b[1]));
+  return (
+    <div className="ipanel">
+      <div className="ipanel-head"><div><h3>🎯 Tentative date against actual release</h3><p>Finished products sampled in the last 90 days that had a tentative date of release.</p></div></div>
+      {done.length === 0 ? <Empty>No finished product has both a tentative and an actual release date yet. Enter the tentative date when the sample is handed over.</Empty> : (
+        <>
+          <div className="qc-facts">
+            <div><b>{Math.round((100 * onTime) / done.length)}%</b><span>released on or before the tentative date ({onTime} of {done.length})</span></div>
+            <div><b>{one(avg(late.map(tentativeGap)))}</b><span>days late on average, for the {late.length} that were late</span></div>
+            <div><b>{open.length}</b><span>still waiting past their tentative date</span></div>
+          </div>
+          {buckets.map(([l, c]) => <div key={l} className="mt-hbar" style={{ gridTemplateColumns: "150px 1fr 34px" }}><span>{l}</span><div><i style={{ width: `${(100 * c) / max}%`, background: l.includes("late") ? "#dc2626" : "#16a34a" }} /></div><b>{c}</b></div>)}
+        </>)}
+    </div>
   );
 }
 
