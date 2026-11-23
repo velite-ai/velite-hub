@@ -4,7 +4,7 @@
 export const STAGES = {
   raw: { key: "raw", title: "Raw material", short: "Raw", icon: "🧪", color: "#1a6fa8", item: "Raw material", hasMicro: false },
   packing: { key: "packing", title: "Packing material", short: "Packing", icon: "📦", color: "#6c3483", item: "Packing material", hasMicro: false },
-  bulk: { key: "bulk", title: "Bulk", short: "Bulk", icon: "🧴", color: "#0f766e", item: "Generic name", hasMicro: true },
+  bulk: { key: "bulk", title: "Bulk", short: "Bulk", icon: "🧴", color: "#0f766e", item: "Generic name", hasMicro: false },
   fp: { key: "fp", title: "Finished product", short: "Finished", icon: "✅", color: "#b45309", item: "Brand name", hasMicro: true },
 };
 export const STAGE_KEYS = Object.keys(STAGES);
@@ -23,7 +23,7 @@ export const monthLabel = (k) => { const [y, m] = k.split("-"); return `${["Jan"
 export const addDays = (s, n) => { const d = toDate(s); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
 // ── what state is a record in? ─────────────────────────────────────────────
-// awaiting_sample → awaiting_qc → awaiting_micro (bulk / finished only) → released.  Or: rejected / hold.
+// awaiting_sample → awaiting_qc → awaiting_micro (finished products only) → released.  Or: rejected / hold.
 export function stateOf(r, today = todayISO()) {
   const st = STAGES[r.stage];
   if (r.qc_remarks === "Not approved" || r.micro_remarks === "Not approved") return "rejected";
