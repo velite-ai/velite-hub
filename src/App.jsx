@@ -100,8 +100,8 @@ const TABS = [
   { k: "myday", label: "🏠 My Day" },
   { k: "materials", label: "📦 Materials" },
   { k: "tasks", label: "✅ Tasks" },
-  { k: "compliance", label: "🛡️ Compliance" },
-  { k: "ipr", label: "⚖️ Trademarks" },
+  { k: "compliance", label: "🛡️ Compliance", staff: true },
+  { k: "ipr", label: "⚖️ Trademarks", staff: true },
   { k: "compass", label: "🧭 Business Compass", owner: true },
   { k: "admin", label: "⚙️ Admin", owner: true },
 ];
@@ -116,7 +116,8 @@ function useHashTab(allowed) {
 
 function Shell({ onSignOut, reloadMe }) {
   const { me, isOwner, tasks, profiles, cmpItems } = useData();
-  const tabs = TABS.filter((t) => !t.owner || isOwner);
+  const isStaff = isOwner || me.role === "manager";
+  const tabs = TABS.filter((t) => (!t.owner || isOwner) && (!t.staff || isStaff));
   const [tab, go] = useHashTab(tabs.map((t) => t.k));
   const [acct, setAcct] = useState(false);
   const alerts = myAlerts(tasks, me) + cmpAlerts(cmpItems, me);
@@ -148,8 +149,8 @@ function Shell({ onSignOut, reloadMe }) {
         {tab === "myday" && <MyDay go={go} />}
         {tab === "materials" && <Materials />}
         {tab === "tasks" && <Tasks />}
-        {tab === "compliance" && <Compliance />}
-        {tab === "ipr" && <Trademarks />}
+        {tab === "compliance" && isStaff && <Compliance />}
+        {tab === "ipr" && isStaff && <Trademarks />}
         {tab === "compass" && isOwner && <Compass />}
         {tab === "admin" && isOwner && <Admin />}
       </div>
