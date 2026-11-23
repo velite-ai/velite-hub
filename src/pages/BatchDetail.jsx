@@ -113,7 +113,7 @@ function List({ rows, stateFor, onOpen }) {
                   <tr key={r.id} className="qc-tr" onClick={() => onOpen(r)}>
                     <td className="nowrap"><span className="tk-firm" style={{ background: FIRM_COLORS[r.firm_id] }}>{r.firm_id}</span><b>{r.batch_no}</b>{n > 1 && <small className="qc-sub"> {r.child_letter === "A" || !r.child_letter ? "mother" : "child"} of {n}</small>}</td>
                     <td className="nowrap"><small className="qc-sub">{r.kind === "tube" ? "Tubes only" : "Other than tubes"}</small></td>
-                    <td>{r.product_name}{r.pack_size && <small className="qc-sub"> {r.pack_size}</small>}{(r.import_flags || []).length > 0 && !r.review_done && <span className="qc-flag" title={r.import_flags.join("\n")}>⚠</span>}</td>
+                    <td>{r.product_name}{(r.import_flags || []).length > 0 && !r.review_done && <span className="qc-flag" title={r.import_flags.join("\n")}>⚠</span>}</td>
                     <td className="nowrap">{fmtM(r.mfg)}</td><td className="nowrap">{fmtM(r.exp)}</td>
                     <td className="nowrap">{r.mrp != null ? `₹${Number(r.mrp).toLocaleString("en-IN", { maximumFractionDigits: 2 })}` : "—"}</td>
                     <td className="nowrap">{qtyText(r) || "—"}</td>
