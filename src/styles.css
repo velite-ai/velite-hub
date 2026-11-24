@@ -957,3 +957,4 @@ button.qc-row{cursor:pointer;} button.qc-row:hover{background:#f9fafb;}
 .rg-group{margin-top:14px;} .rg-group h3{font-size:16px;margin:0 0 6px;}
 .rg-sub{margin:6px 0 10px 8px;border-left:3px solid #cbd5e1;padding-left:10px;}
 .rg-sub-head{background:none;border:none;font:inherit;font-weight:700;font-size:14px;cursor:pointer;padding:4px 0;color:#334155;}
+.rg-search .search-inp{width:100%;min-height:42px;font-size:15px;padding:0 14px;border-radius:12px;}
