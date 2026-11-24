@@ -162,30 +162,61 @@ function IngredientForm({ row, onClose, onSaved }) {
 
 // ── products and formulas ────────────────────────────────────────────────
 function Products({ rows, ings, reload }) {
-  const [q, setQ] = useState(""); const [firm, setFirm] = useState(""); const [edit, setEdit] = useState(null); const [shown, setShown] = useState(60);
-  const list = useMemo(() => { const s = q.trim().toLowerCase(); return rows.filter((r) => (!firm || r.firm_id === firm) && (!s || [r.name, r.category, r.licence_ref].join(" ").toLowerCase().includes(s))).sort((a, b) => a.name.localeCompare(b.name)); }, [rows, q, firm]);
+  const [q, setQ] = useState(""); const [firm, setFirm] = useState(""); const [edit, setEdit] = useState(null); const [pick, setPick] = useState(new Set()); const [bulk, setBulk] = useState(false);
+  const [open, setOpen] = useState({});
+  const owners = useMemo(() => [...new Set(rows.map((r) => r.brand_owner).filter(Boolean))].sort(), [rows]);
+  const list = useMemo(() => { const s = q.trim().toLowerCase(); return rows.filter((r) => (!firm || r.firm_id === firm) && (!s || [r.name, r.category, r.licence_ref, r.brand_owner].join(" ").toLowerCase().includes(s))).sort((a, b) => a.name.localeCompare(b.name)); }, [rows, q, firm]);
+  const own = list.filter((r) => !r.brand_owner);
+  const byOwner = useMemo(() => { const m = {}; list.filter((r) => r.brand_owner).forEach((r) => { (m[r.brand_owner] ||= []).push(r); }); return Object.entries(m).sort((a, b) => a[0].localeCompare(b[0])); }, [list]);
+  const toggle = (id) => setPick((x) => { const n = new Set(x); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const Row = ({ r }) => (
+    <tr className="qc-tr" onClick={() => setEdit(r)}>
+      <td onClick={(e) => e.stopPropagation()} style={{ width: 28 }}><input type="checkbox" checked={pick.has(r.id)} onChange={() => toggle(r.id)} /></td>
+      <td><span className="tk-firm" style={{ background: FIRM_COLORS[r.firm_id] }}>{r.firm_id}</span><b>{r.name}</b></td><td>{r.category || "—"}</td><td>{r.licence_ref || "—"}</td>
+      <td>{r.approval_url ? <a href={r.approval_url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>Open ↗</a> : "—"}</td></tr>);
+  const Table = ({ items }) => <div className="table-wrap"><table className="tbl qc-tbl"><thead><tr><th></th><th>Product</th><th>Category</th><th>Licence</th><th>Approval</th></tr></thead><tbody>{items.map((r) => <Row key={r.id} r={r} />)}</tbody></table></div>;
   return (
     <>
       <div className="qc-filters" style={{ marginBottom: 8 }}>
-        <div style={{ flex: 1, minWidth: 220 }}><SearchBox value={q} onChange={setQ} placeholder="🔎 Search product, category, licence…" /></div>
+        <div style={{ flex: 1, minWidth: 220 }}><SearchBox value={q} onChange={setQ} placeholder="🔎 Search product, category, licence, brand owner…" /></div>
         <select className="inp inp-filter" value={firm} onChange={(e) => setFirm(e.target.value)}><option value="">All firms</option>{FIRMS.map((x) => <option key={x}>{x}</option>)}</select>
+        {pick.size > 0 && <button className="btn-ghost sm" onClick={() => setBulk(true)}>Set brand owner for {pick.size} selected</button>}
         <button className="btn-primary sm" onClick={() => setEdit({})}>＋ New product</button>
       </div>
       {list.length === 0 ? <Empty>No products yet. Add one, then paste its ingredient list from the FDA approval.</Empty> : (
-        <div className="table-wrap"><table className="tbl qc-tbl"><thead><tr><th>Product</th><th>Category</th><th>Licence</th><th>Approval</th></tr></thead>
-          <tbody>{list.slice(0, shown).map((r) => <tr key={r.id} className="qc-tr" onClick={() => setEdit(r)}>
-            <td><span className="tk-firm" style={{ background: FIRM_COLORS[r.firm_id] }}>{r.firm_id}</span><b>{r.name}</b></td><td>{r.category || "—"}</td><td>{r.licence_ref || "—"}</td><td>{r.approval_url ? <a href={r.approval_url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>Open ↗</a> : "—"}</td></tr>)}</tbody></table></div>)}
-      {list.length > shown && <div style={{ textAlign: "center", marginTop: 10 }}><button className="btn-ghost" onClick={() => setShown((n) => n + 100)}>Show more</button></div>}
-      {edit && <ProductForm row={edit.id ? edit : null} ings={ings} onClose={() => setEdit(null)} onSaved={() => { reload(); }} />}
+        <>
+          <div className="rg-group"><h3>Velite's own brands <span className="section-count">{own.length}</span></h3>{own.length ? <Table items={own} /> : <div className="small-muted">None.</div>}</div>
+          {byOwner.length > 0 && <div className="rg-group"><h3>Other companies' brands <span className="section-count">{byOwner.reduce((a, [, v]) => a + v.length, 0)}</span></h3>
+            <div className="small-muted" style={{ marginBottom: 6 }}>Products Velite manufactures for other companies, grouped by the company.</div>
+            {byOwner.map(([name, items]) => (
+              <div key={name} className="rg-sub">
+                <button className="rg-sub-head" onClick={() => setOpen((x) => ({ ...x, [name]: !x[name] }))}>{open[name] === false ? "▸" : "▾"} {name} <span className="section-count">{items.length}</span></button>
+                {open[name] !== false && <Table items={items} />}
+              </div>))}
+          </div>}
+        </>)}
+      {edit && <ProductForm row={edit.id ? edit : null} ings={ings} owners={owners} onClose={() => setEdit(null)} onSaved={() => { reload(); }} />}
+      {bulk && <BulkOwner ids={[...pick]} owners={owners} onClose={() => setBulk(false)} onDone={() => { setBulk(false); setPick(new Set()); reload(); }} />}
     </>
   );
 }
 
-function ProductForm({ row, ings, onClose, onSaved }) {
+function BulkOwner({ ids, owners, onClose, onDone }) {
+  const [v, setV] = useState(""); const [busy, setBusy] = useState(false);
+  const go = async () => { setBusy(true); const r = await run(supabase.from("reg_products").update({ brand_owner: v.trim() || null }).in("id", ids), v.trim() ? `Brand owner set for ${ids.length} products` : `${ids.length} products set as Velite's own brands`); setBusy(false); if (r.ok) onDone(); };
+  return (
+    <Modal title={`Brand owner for ${ids.length} products`} onClose={onClose} actions={<><button className="btn-ghost" onClick={onClose}>Cancel</button><button className="btn-primary" onClick={go} disabled={busy}>{busy ? "Saving…" : "Save"}</button></>}>
+      <Field label="Company that owns the brand" hint="Leave empty to make them Velite's own brands."><input className="form-inp" list="rg-owners" value={v} onChange={(e) => setV(e.target.value)} placeholder="e.g. Dreamax Healthcare" /></Field>
+      <datalist id="rg-owners">{owners.map((o) => <option key={o} value={o} />)}</datalist>
+    </Modal>
+  );
+}
+
+function ProductForm({ row, ings, owners = [], onClose, onSaved }) {
   const { isOwner } = useData();
   const [ask, dialog] = useConfirm();
   const [id, setId] = useState(row?.id || null);
-  const [f, setF] = useState(() => ({ firm_id: row?.firm_id || "VH", name: row?.name || "", category: row?.category || "", form: row?.form || "", licence_ref: row?.licence_ref || "", approval_url: row?.approval_url || "", approval_date: row?.approval_date || "",
+  const [f, setF] = useState(() => ({ firm_id: row?.firm_id || "VH", name: row?.name || "", brand_owner: row?.brand_owner || "", category: row?.category || "", form: row?.form || "", licence_ref: row?.licence_ref || "", approval_url: row?.approval_url || "", approval_date: row?.approval_date || "",
     storage: row?.storage || "", shelf_life: row?.shelf_life || "", notes: row?.notes || "", physchem: { ...(row?.physchem || {}) } }));
   const [lines, setLines] = useState([]); const [loaded, setLoaded] = useState(!row); const [busy, setBusy] = useState(false); const [paste, setPaste] = useState("");
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
@@ -195,7 +226,7 @@ function ProductForm({ row, ings, onClose, onSaved }) {
 
   const saveProduct = async () => {
     if (!f.name.trim()) { toast("Write the product name.", "err"); return null; }
-    const rec = { firm_id: f.firm_id, name: f.name.trim(), category: f.category.trim() || null, form: f.form.trim() || null, licence_ref: f.licence_ref.trim() || null, approval_url: f.approval_url.trim() || null, approval_date: f.approval_date || null,
+    const rec = { firm_id: f.firm_id, name: f.name.trim(), brand_owner: f.brand_owner.trim() || null, category: f.category.trim() || null, form: f.form.trim() || null, licence_ref: f.licence_ref.trim() || null, approval_url: f.approval_url.trim() || null, approval_date: f.approval_date || null,
       storage: f.storage.trim() || null, shelf_life: f.shelf_life.trim() || null, notes: f.notes.trim() || null, physchem: Object.fromEntries(Object.entries(f.physchem).filter(([, v]) => String(v || "").trim())) };
     if (id) { const r = await run(supabase.from("reg_products").update(rec).eq("id", id)); return r.ok ? id : null; }
     const r = await run(supabase.from("reg_products").insert(rec).select("id").single());
@@ -233,6 +264,8 @@ function ProductForm({ row, ings, onClose, onSaved }) {
       <div className="form-grid">
         <Field label="Firm"><select className="form-inp" value={f.firm_id} onChange={set("firm_id")}>{FIRMS.map((x) => <option key={x} value={x}>{x} · {FIRM_NAMES[x]}</option>)}</select></Field>
         <Field label="Product name"><input className="form-inp" value={f.name} onChange={set("name")} /></Field>
+        <Field label="Brand owner" hint="Leave empty for Velite's own brands. For a product made for another company, write that company."><input className="form-inp" list="rg-owners2" value={f.brand_owner} onChange={set("brand_owner")} placeholder="e.g. Dreamax Healthcare" /></Field>
+        <datalist id="rg-owners2">{owners.map((o) => <option key={o} value={o} />)}</datalist>
         <Field label="Category"><input className="form-inp" value={f.category} onChange={set("category")} placeholder="Face wash, serum, cream…" /></Field>
         <Field label="Form"><input className="form-inp" value={f.form} onChange={set("form")} placeholder="Liquid, gel, cream…" /></Field>
         <Field label="Manufacturing licence no."><input className="form-inp" value={f.licence_ref} onChange={set("licence_ref")} /></Field>
@@ -469,7 +502,7 @@ function ImportPanel({ reload }) {
       const pk = new Set((haveP || []).map((p) => `${p.firm_id}|${p.name.toLowerCase()}`));
       for (const p of data.products) {
         const k = `${p.firm_id}|${p.name.toLowerCase()}`; if (pk.has(k)) { res.prodSkip++; continue; } pk.add(k);
-        const ins = await supabase.from("reg_products").insert({ firm_id: p.firm_id, name: p.name, physchem: p.physchem || {}, notes: p.notes || null, approval_url: p.approval_url || null }).select("id").single();
+        const ins = await supabase.from("reg_products").insert({ firm_id: p.firm_id, name: p.name, physchem: p.physchem || {}, notes: p.notes || null, brand_owner: p.brand_owner || null, approval_url: p.approval_url || null }).select("id").single();
         if (ins.error) throw ins.error; res.prod++;
         const rows = p.lines.map((l, i) => {
           const c = String(l.cas || "").split(/[,;&{}()\s]+/).filter(Boolean)[0];
