@@ -7,6 +7,7 @@ import Materials from "./pages/Materials";
 import QcRelease from "./pages/QcRelease";
 import BatchDetail from "./pages/BatchDetail";
 import DailyReport from "./pages/DailyReport";
+import Regulatory from "./pages/Regulatory";
 import Tasks from "./pages/Tasks";
 import Compass from "./pages/Compass";
 import Trademarks from "./pages/Trademarks";
@@ -107,6 +108,7 @@ const TABS = [
   { k: "qc", label: "🧪 QC Release", qcTab: true },
   { k: "tasks", label: "✅ Tasks" },
   { k: "daily", label: "📝 Daily Report" },
+  { k: "regulatory", label: "📋 Regulatory", regTab: true },
   { k: "compliance", label: "🛡️ Compliance", staff: true },
   { k: "ipr", label: "⚖️ Trademarks", staff: true },
   { k: "compass", label: "🧭 Business Compass", owner: true },
@@ -122,8 +124,8 @@ function useHashTab(allowed) {
 }
 
 function Shell({ onSignOut, reloadMe }) {
-  const { me, isOwner, isStaff, matLists, canQc, canBatch, tasks, profiles, cmpItems } = useData();
-  const tabs = TABS.filter((t) => (!t.owner || isOwner) && (!t.staff || isStaff) && (!t.mat || matLists.length > 0) && (!t.qcTab || canQc) && (!t.batchTab || canBatch));
+  const { me, isOwner, isStaff, matLists, canQc, canBatch, canReg, tasks, profiles, cmpItems } = useData();
+  const tabs = TABS.filter((t) => (!t.owner || isOwner) && (!t.staff || isStaff) && (!t.mat || matLists.length > 0) && (!t.qcTab || canQc) && (!t.batchTab || canBatch) && (!t.regTab || canReg));
   const [tab, go] = useHashTab(tabs.map((t) => t.k));
   const [acct, setAcct] = useState(false);
   const alerts = myAlerts(tasks, me) + cmpAlerts(cmpItems, me);
@@ -157,6 +159,7 @@ function Shell({ onSignOut, reloadMe }) {
         {tab === "qc" && canQc && <QcRelease go={go} />}
         {tab === "batches" && canBatch && <BatchDetail go={go} />}
         {tab === "daily" && <DailyReport />}
+        {tab === "regulatory" && canReg && <Regulatory />}
         {tab === "tasks" && <Tasks />}
         {tab === "compliance" && isStaff && <Compliance />}
         {tab === "ipr" && isStaff && <Trademarks />}
