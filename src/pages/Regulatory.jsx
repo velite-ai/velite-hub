@@ -36,7 +36,7 @@ export default function Regulatory() {
         : view === "ingredients" ? <Ingredients rows={ings} reload={regIngredients.reload} />
         : view === "products" ? <Products rows={prods} ings={ings} reload={regProducts.reload} />
         : view === "msds" ? <MsdsList prods={prods} ings={ings} />
-        : <Settings />}
+        : <Settings reload={() => { regIngredients.reload(); regProducts.reload(); }} />}
     </div>
   );
 }
@@ -412,7 +412,7 @@ function MsdsPaper({ c, s }) {
 }
 
 // ── settings (owners) ────────────────────────────────────────────────────
-function Settings() {
+function Settings({ reload }) {
   const [firms, reloadF] = useSetting("firms"); const [tpl, reloadT] = useSetting(TEMPLATE_KEY);
   const [fv, setFv] = useState(null); const [tv, setTv] = useState(null); const [ask, dialog] = useConfirm();
   useEffect(() => { if (firms !== undefined) setFv(JSON.parse(JSON.stringify(firms || {}))); }, [firms]);
@@ -436,7 +436,59 @@ function Settings() {
             {sec.fields.map((fl, fi) => <Field key={fl.k} label={`${fl.label}${fl.auto ? " (from the product)" : ""}`}><textarea className="form-inp" rows={2} value={fl.text || ""} onChange={(e) => setTv((x) => { const n = JSON.parse(JSON.stringify(x)); n.sections[si].fields[fi].text = e.target.value; return n; })} /></Field>)}
           </div>))}
         <div style={{ display: "flex", gap: 8 }}><button className="btn-primary" onClick={saveTpl}>Save standard wording</button><button className="btn-ghost" onClick={reset}>Reset to built-in</button></div></div>
+      <ImportPanel reload={reload} />
       {dialog}
     </>
+  );
+}
+
+// one-time bulk load of products, formulas and supplier ingredient data read from the existing MSDS files
+function ImportPanel({ reload }) {
+  const [data, setData] = useState(null); const [busy, setBusy] = useState(false); const [done, setDone] = useState(null); const [err, setErr] = useState("");
+  const onFile = async (e) => {
+    const f = e.target.files?.[0]; e.target.value = ""; if (!f) return; setErr(""); setDone(null);
+    try { const j = JSON.parse(await f.text()); if (!Array.isArray(j.products) || !Array.isArray(j.ingredients)) throw new Error("x"); setData(j); } catch { setErr("This is not an import file made for the Regulatory tab."); }
+  };
+  const norm = (x) => String(x || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const run1 = async () => {
+    setBusy(true); const res = { ing: 0, ingSkip: 0, prod: 0, prodSkip: 0, lines: 0, linked: 0 };
+    try {
+      const { data: have } = await supabase.from("reg_ingredients").select("id,name,supplier,inci_name,cas").is("deleted_at", null).limit(10000);
+      const key = (n, s) => `${String(n).toLowerCase()}|${String(s || "").toLowerCase()}`;
+      const known = new Set((have || []).map((i) => key(i.name, i.supplier)));
+      const all = [...data.ingredients, ...(data.stubs || [])].filter((i) => { const k = key(i.name, i.supplier); if (known.has(k)) { res.ingSkip++; return false; } known.add(k); return true; });
+      for (let i = 0; i < all.length; i += 100) {
+        const chunk = all.slice(i, i + 100).map((x) => ({ name: x.name, inci_name: x.inci_name || null, cas: x.cas || null, supplier: x.supplier || null, hazard: x.hazard || {}, physchem: x.physchem || {}, safety: x.safety || {},
+          source_name: x.source_name || null, source_url: x.source_url || null, source_date: x.source_date || null, status: "review", notes: "Read from the document by the Hub import. Check against the original." }));
+        const r = await supabase.from("reg_ingredients").insert(chunk); if (r.error) throw r.error; res.ing += chunk.length;
+      }
+      const { data: ings } = await supabase.from("reg_ingredients").select("id,name,inci_name,cas").is("deleted_at", null).limit(10000);
+      const byCas = new Map(), byName = new Map();
+      (ings || []).forEach((i) => { const c = String(i.cas || "").split(/[,;&\s]+/)[0]; if (c && !byCas.has(c)) byCas.set(c, i); [i.name, i.inci_name].forEach((n) => { const k = norm(n); if (k && !byName.has(k)) byName.set(k, i); }); });
+      const { data: haveP } = await supabase.from("reg_products").select("id,firm_id,name").is("deleted_at", null).limit(10000);
+      const pk = new Set((haveP || []).map((p) => `${p.firm_id}|${p.name.toLowerCase()}`));
+      for (const p of data.products) {
+        const k = `${p.firm_id}|${p.name.toLowerCase()}`; if (pk.has(k)) { res.prodSkip++; continue; } pk.add(k);
+        const ins = await supabase.from("reg_products").insert({ firm_id: p.firm_id, name: p.name, physchem: p.physchem || {}, notes: p.notes || null, approval_url: p.approval_url || null }).select("id").single();
+        if (ins.error) throw ins.error; res.prod++;
+        const rows = p.lines.map((l, i) => {
+          const c = String(l.cas || "").split(/[,;&{}()\s]+/).filter(Boolean)[0];
+          const m = (c && byCas.get(c)) || byName.get(norm(l.inci)) || byName.get(norm(l.label)) || null; if (m) res.linked++;
+          return { product_id: ins.data.id, position: i + 1, ingredient_id: m?.id || null, label: l.label, inci_name: l.inci || m?.inci_name || null, cas: l.cas && l.cas.length < 60 ? l.cas : null, pct: l.pct, pct_text: l.pct_text || null };
+        });
+        for (let i = 0; i < rows.length; i += 200) { const r = await supabase.from("reg_formula_lines").insert(rows.slice(i, i + 200)); if (r.error) throw r.error; res.lines += Math.min(200, rows.length - i); }
+      }
+      setDone(res); setData(null); reload();
+    } catch (x) { setErr(x.message || "The import stopped. Nothing already saved is lost; you can run it again and it skips what is there."); }
+    setBusy(false);
+  };
+  return (
+    <div className="ipanel"><div className="ipanel-head"><div><h3>📥 Load products and ingredients from existing MSDS files</h3><p>One-time load of the file prepared from your Drive. Safe to repeat: products and ingredients already there are skipped. Everything loaded is marked “To verify”.</p></div></div>
+      <input type="file" accept=".json,application/json" onChange={onFile} />
+      {err && <div className="mt-dup">{err}</div>}
+      {data && <div style={{ marginTop: 10 }}><div><b>{data.products.length}</b> products with <b>{data.products.reduce((a, p) => a + p.lines.length, 0)}</b> formula lines, <b>{data.ingredients.length}</b> supplier ingredient sheets and <b>{(data.stubs || []).length}</b> common ingredients.</div>
+        <button className="btn-primary" style={{ marginTop: 8 }} onClick={run1} disabled={busy}>{busy ? "Loading… please wait" : "Load it"}</button></div>}
+      {done && <div className="mt-dup" style={{ background: "#ecfdf5", color: "#166534" }}>✅ Added {done.prod} products ({done.lines} formula lines, {done.linked} linked to the ingredient library) and {done.ing} ingredients. Skipped {done.prodSkip} products and {done.ingSkip} ingredients that were already there.</div>}
+    </div>
   );
 }
