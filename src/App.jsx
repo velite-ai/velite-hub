@@ -6,6 +6,7 @@ import MyDay, { myAlerts, cmpAlerts } from "./pages/MyDay";
 import Materials from "./pages/Materials";
 import QcRelease from "./pages/QcRelease";
 import BatchDetail from "./pages/BatchDetail";
+import DailyReport from "./pages/DailyReport";
 import Tasks from "./pages/Tasks";
 import Compass from "./pages/Compass";
 import Trademarks from "./pages/Trademarks";
@@ -105,6 +106,7 @@ const TABS = [
   { k: "batches", label: "🏭 Batch Detail", batchTab: true },
   { k: "qc", label: "🧪 QC Release", qcTab: true },
   { k: "tasks", label: "✅ Tasks" },
+  { k: "daily", label: "📝 Daily Report" },
   { k: "compliance", label: "🛡️ Compliance", staff: true },
   { k: "ipr", label: "⚖️ Trademarks", staff: true },
   { k: "compass", label: "🧭 Business Compass", owner: true },
@@ -154,6 +156,7 @@ function Shell({ onSignOut, reloadMe }) {
         {tab === "materials" && matLists.length > 0 && <Materials />}
         {tab === "qc" && canQc && <QcRelease go={go} />}
         {tab === "batches" && canBatch && <BatchDetail go={go} />}
+        {tab === "daily" && <DailyReport />}
         {tab === "tasks" && <Tasks />}
         {tab === "compliance" && isStaff && <Compliance />}
         {tab === "ipr" && isStaff && <Trademarks />}
