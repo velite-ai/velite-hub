@@ -58,6 +58,9 @@ export function DataProvider({ me, children }) {
   const canBatch = canBatchEdit || canQc;               // QC staff can look at it (read only)
   const batches = useTable("hub_batches", { enabled: canBatch, order: "entered_on", ascending: false });
   const products = useTable("hub_products", { enabled: canBatch, order: "name", ascending: true });
+  const canReg = isStaff || !!me.reg_access;                // Regulatory: owners, managers and people ticked in Admin
+  const regIngredients = useTable("reg_ingredients", { enabled: canReg, order: "name", ascending: true });
+  const regProducts = useTable("reg_products", { enabled: canReg, order: "name", ascending: true });
   const tasks = useTable("hub_tasks");
   const comments = useTable("hub_comments", { ascending: true });
   const goals = useTable("hub_goals", { enabled: isOwner });
@@ -79,7 +82,7 @@ export function DataProvider({ me, children }) {
   const cmpDocs = useTable("hub_cmp_docs", { enabled: isStaff, order: "created_at", ascending: true });
   const chkHeads = useTable("hub_chk_heads", { enabled: isStaff, order: "dept", ascending: true });
 
-  const value = { me, isOwner, isStaff, matLists, canQc, qc, canBatch, canBatchEdit, batches, products, profiles, materials, tasks, comments, goals, goalItems, trademarks,
+  const value = { me, isOwner, isStaff, matLists, canQc, qc, canBatch, canBatchEdit, batches, products, canReg, regIngredients, regProducts, profiles, materials, tasks, comments, goals, goalItems, trademarks,
     iprNotices, iprThird, iprDocs, iprMatters, iprOptions,
     cmpItems, cmpLib, cmpFirms, cmpAssign, cmpLic, chkPoints, chkAnswers, chkHeads, cmpDocs, notifs };
   return <DataCtx.Provider value={value}>{children}</DataCtx.Provider>;
