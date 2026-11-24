@@ -14,6 +14,7 @@ export const DEFAULT_TEMPLATE = {
     { no: 1, title: "Identification of the product and of the company", fields: [
       { k: "product", label: "Product identifier", auto: "product" },
       { k: "use", label: "Intended use", text: "Cosmetic product for external use on skin or hair, as directed on the label." },
+      { k: "brand", label: "Brand owner (marketed by)", auto: "brand" },
       { k: "company", label: "Manufacturer", auto: "company" },
       { k: "emergency", label: "Emergency contact", text: "In an emergency contact the manufacturer at the address above, or the nearest poison information centre or hospital." },
     ] },
@@ -147,6 +148,7 @@ export function buildMsds({ product, lines, ingredients, firm, template, prepare
     appearance: ph.appearance || "", colour: ph.colour || "", odour: ph.odour || "", ph: ph.ph || "", boiling: ph.boiling || "",
     flash: ph.flash || "", density: ph.density || "", solubility: ph.solubility || "",
     licence: product.licence_ref || "",
+    brand: product.brand_owner || "",
   };
   const today = new Date().toISOString().slice(0, 10);
   const due = new Date(); due.setFullYear(due.getFullYear() + (tpl.validity_years || 3));
