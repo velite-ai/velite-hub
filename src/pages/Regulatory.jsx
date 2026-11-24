@@ -86,7 +86,7 @@ function Ingredients({ rows, reload }) {
   return (
     <>
       <div className="qc-filters" style={{ marginBottom: 8 }}>
-        <div style={{ flex: 1, minWidth: 220 }}><SearchBox value={q} onChange={(v) => { setQ(v); setShown(60); }} placeholder="🔎 Search name, INCI, CAS, supplier…" /></div>
+        <div className="rg-search" style={{ flex: 1, minWidth: 220 }}><SearchBox value={q} onChange={(v) => { setQ(v); setShown(60); }} placeholder="🔎 Search name, INCI, CAS, supplier…" /></div>
         <select className="inp inp-filter" value={st} onChange={(e) => setSt(e.target.value)}><option value="">All</option><option value="review">To verify</option><option value="verified">Verified</option></select>
         <button className="btn-primary sm" onClick={() => setEdit({})}>＋ New ingredient</button>
       </div>
@@ -178,7 +178,7 @@ function Products({ rows, ings, reload }) {
   return (
     <>
       <div className="qc-filters" style={{ marginBottom: 8 }}>
-        <div style={{ flex: 1, minWidth: 220 }}><SearchBox value={q} onChange={setQ} placeholder="🔎 Search product, category, licence, brand owner…" /></div>
+        <div className="rg-search" style={{ flex: 1, minWidth: 220 }}><SearchBox value={q} onChange={setQ} placeholder="🔎 Search product, category, licence, brand owner…" /></div>
         <select className="inp inp-filter" value={firm} onChange={(e) => setFirm(e.target.value)}><option value="">All firms</option>{FIRMS.map((x) => <option key={x}>{x}</option>)}</select>
         {pick.size > 0 && <button className="btn-ghost sm" onClick={() => setBulk(true)}>Set brand owner for {pick.size} selected</button>}
         <button className="btn-primary sm" onClick={() => setEdit({})}>＋ New product</button>
@@ -327,7 +327,7 @@ function MsdsList({ prods, ings }) {
   return (
     <>
       <div className="qc-filters" style={{ marginBottom: 8 }}>
-        <div style={{ flex: 1, minWidth: 220 }}><SearchBox value={q} onChange={setQ} placeholder="🔎 Search by product…" /></div>
+        <div className="rg-search" style={{ flex: 1, minWidth: 220 }}><SearchBox value={q} onChange={setQ} placeholder="🔎 Search by product…" /></div>
         <button className="btn-primary sm" onClick={() => setPicking(true)}>＋ New MSDS</button>
       </div>
       {list.length === 0 ? <Empty>No MSDS yet. Press “New MSDS” and choose a product with a formula.</Empty> : (
