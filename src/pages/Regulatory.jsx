@@ -5,7 +5,7 @@ import { useData, run, toast } from "../lib/data";
 import { Modal, Field, Empty, SearchBox, useConfirm } from "../components/ui";
 import { FIRM_COLORS } from "./compliance/common";
 import { fmtD, todayISO } from "../lib/qc";
-import { DEFAULT_TEMPLATE, TEMPLATE_KEY, FIRM_NAMES, buildMsds, reviewNotes, toDocx, splitIngredientList } from "../lib/msds";
+import { DEFAULT_TEMPLATE, TEMPLATE_KEY, FIRM_NAMES, buildMsds, reviewNotes, toDocx, splitIngredientList, parseApprovalText } from "../lib/msds";
 
 // Regulatory: ingredient library (from supplier MSDS), product formulas, and the MSDS maker. Built as sections (tabs) so more regulatory
 // work (licences, label checks, dossiers) can be added later without touching what is here.
@@ -13,6 +13,12 @@ import { DEFAULT_TEMPLATE, TEMPLATE_KEY, FIRM_NAMES, buildMsds, reviewNotes, toD
 const FIRMS = ["VH", "VP", "VI", "VS"];
 const lst = (s) => String(s || "").split(/[,;\n]+/).map((x) => x.trim()).filter(Boolean);
 const val = (o, k) => (o && o[k] != null ? o[k] : "");
+
+async function openRegFile(path) {
+  const { data, error } = await supabase.storage.from("regulatory").createSignedUrl(path, 300);
+  if (error) { toast(error.message, "err"); return; }
+  window.open(data.signedUrl, "_blank", "noopener");
+}
 
 function useSetting(key) {
   const [v, setV] = useState(undefined);
@@ -173,7 +179,7 @@ function Products({ rows, ings, reload }) {
     <tr className="qc-tr" onClick={() => setEdit(r)}>
       <td onClick={(e) => e.stopPropagation()} style={{ width: 28 }}><input type="checkbox" checked={pick.has(r.id)} onChange={() => toggle(r.id)} /></td>
       <td><span className="tk-firm" style={{ background: FIRM_COLORS[r.firm_id] }}>{r.firm_id}</span><b>{r.name}</b></td><td>{r.category || "—"}</td><td>{r.licence_ref || "—"}</td>
-      <td>{r.approval_url ? <a href={r.approval_url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>Open ↗</a> : "—"}</td></tr>);
+      <td>{r.approval_file ? <a href="#open" onClick={(e) => { e.preventDefault(); e.stopPropagation(); openRegFile(r.approval_file); }}>Approval ↗</a> : r.approval_url ? <a href={r.approval_url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>Open ↗</a> : "—"}</td></tr>);
   const Table = ({ items }) => <div className="table-wrap"><table className="tbl qc-tbl"><thead><tr><th></th><th>Product</th><th>Category</th><th>Licence</th><th>Approval</th></tr></thead><tbody>{items.map((r) => <Row key={r.id} r={r} />)}</tbody></table></div>;
   return (
     <>
@@ -307,7 +313,7 @@ function ProductForm({ row, ings, owners = [], onClose, onSaved }) {
 // ── MSDS list and maker ──────────────────────────────────────────────────
 function MsdsList({ prods, ings }) {
   const { me } = useData();
-  const [sheets, setSheets] = useState(null); const [open, setOpen] = useState(null); const [picking, setPicking] = useState(false); const [pid, setPid] = useState(""); const [q, setQ] = useState("");
+  const [sheets, setSheets] = useState(null); const [open, setOpen] = useState(null); const [picking, setPicking] = useState(false); const [wizard, setWizard] = useState(false); const [pid, setPid] = useState(""); const [q, setQ] = useState("");
   const [tpl] = useSetting(TEMPLATE_KEY); const [firms] = useSetting("firms");
   const load = async () => { const { data } = await supabase.from("reg_msds").select("*").order("updated_at", { ascending: false }); setSheets(data || []); };
   useEffect(() => { load(); }, []);
@@ -328,6 +334,7 @@ function MsdsList({ prods, ings }) {
     <>
       <div className="qc-filters" style={{ marginBottom: 8 }}>
         <div className="rg-search" style={{ flex: 1, minWidth: 220 }}><SearchBox value={q} onChange={setQ} placeholder="🔎 Search by product…" /></div>
+        <button className="btn-ghost sm" onClick={() => setWizard(true)}>📎 From an approval sheet</button>
         <button className="btn-primary sm" onClick={() => setPicking(true)}>＋ New MSDS</button>
       </div>
       {list.length === 0 ? <Empty>No MSDS yet. Press “New MSDS” and choose a product with a formula.</Empty> : (
@@ -341,8 +348,111 @@ function MsdsList({ prods, ings }) {
         <Modal title="New MSDS" onClose={() => setPicking(false)} actions={<><button className="btn-ghost" onClick={() => setPicking(false)}>Cancel</button><button className="btn-primary" onClick={create} disabled={!pid}>Start</button></>}>
           <Field label="Product" hint="The sheet is built from the product's formula and the ingredient library. You can edit every line afterwards."><select className="form-inp" value={pid} onChange={(e) => setPid(e.target.value)}><option value="">Choose…</option>{prods.slice().sort((a, b) => a.name.localeCompare(b.name)).map((p) => <option key={p.id} value={p.id}>{p.firm_id} · {p.name}</option>)}</select></Field>
         </Modal>)}
+      {wizard && <ApprovalWizard prods={prods} ings={ings} sheets={sheets} tpl={tpl} firms={firms} onClose={() => setWizard(false)} onDone={async (first) => { setWizard(false); await load(); if (first) setOpen(first); }} />}
       {open && <MsdsEditor sheet={open} product={pmap[open.product_id]} ings={ings} tpl={tpl} firms={firms} onClose={() => { setOpen(null); load(); }} onChanged={load} />}
     </>
+  );
+}
+
+// FDA approval sheet in, products + formulas + MSDS drafts out. The file is kept as the source document.
+function ApprovalWizard({ prods, ings, sheets, tpl, firms, onClose, onDone }) {
+  const { me, regProducts } = useData();
+  const [step, setStep] = useState(1); const [firm, setFirm] = useState("VH"); const [path, setPath] = useState(""); const [view, setView] = useState(""); const [isImg, setIsImg] = useState(false);
+  const [text, setText] = useState(""); const [fname, setFname] = useState(""); const [busy, setBusy] = useState(false); const [note, setNote] = useState("");
+  const [blocks, setBlocks] = useState([]); const [makeMsds, setMakeMsds] = useState(true);
+  const norm = (x) => String(x || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const match = (label) => { const k = norm(label); return ings.find((i) => norm(i.inci_name) === k || norm(i.name) === k) || null; };
+
+  const onFile = async (e) => {
+    const f = e.target.files?.[0]; e.target.value = ""; if (!f) return;
+    if (f.size > 15 * 1024 * 1024) { toast("The file is larger than 15 MB.", "err"); return; }
+    setBusy(true); setNote(""); setFname(f.name.replace(/\.[^.]+$/, ""));
+    const safe = f.name.replace(/[^\w.-]+/g, "_"); const p = `approvals/${Date.now()}_${safe}`;
+    const up = await supabase.storage.from("regulatory").upload(p, f, { upsert: false });
+    if (up.error) { toast(up.error.message, "err"); setBusy(false); return; }
+    setPath(p); setIsImg(/^image\//.test(f.type));
+    const sg = await supabase.storage.from("regulatory").createSignedUrl(p, 3600); setView(sg.data?.signedUrl || "");
+    if (f.type === "application/pdf") {
+      try {
+        const pdfjs = await import("pdfjs-dist/build/pdf.mjs");
+        pdfjs.GlobalWorkerOptions.workerSrc = (await import("pdfjs-dist/build/pdf.worker.mjs?url")).default;
+        const doc = await pdfjs.getDocument({ data: new Uint8Array(await f.arrayBuffer()) }).promise; let all = "";
+        for (let i = 1; i <= Math.min(doc.numPages, 12); i++) { const pg = await doc.getPage(i); const c = await pg.getTextContent(); let line = ""; all += c.items.map((it) => { const s = it.str + (it.hasEOL ? "\n" : " "); return s; }).join("") + "\n"; }
+        if (all.replace(/\s/g, "").length > 80) { setText(all); setNote("The text of the PDF was read. Check it against the document, correct it if needed, then press “Read the list”."); }
+        else setNote("This PDF is a scan (a picture), so its text cannot be read automatically. Type or paste the ingredient list below, copying it from the document on the right.");
+      } catch { setNote("The PDF text could not be read. Type or paste the ingredient list below."); }
+    } else setNote("This file is a picture. Type or paste the ingredient list below, copying it from the document on the right.");
+    setBusy(false);
+  };
+  const read = () => {
+    const b = parseApprovalText(text, fname).map((x) => ({ include: true, name: x.name || fname, list: x.items.map((i) => (i.pct != null ? `${i.name} ${i.pct}%` : i.name)).join("\n") }));
+    if (!b.length) { toast("No product with an ingredient list was found. Check the text: a product name on its own line, then its ingredients separated by commas.", "err"); return; }
+    setBlocks(b); setStep(2);
+  };
+  const upd = (i, patch) => setBlocks((x) => x.map((b, j) => (j === i ? { ...b, ...patch } : b)));
+
+  const create = async () => {
+    const chosen = blocks.filter((b) => b.include && b.name.trim()); if (!chosen.length) { toast("Tick at least one product.", "err"); return; }
+    setBusy(true); let first = null; let made = 0; let sheetsMade = 0;
+    try {
+      for (const b of chosen) {
+        const items = String(b.list).split("\n").map((l) => l.trim()).filter(Boolean).map((l) => { const m = l.match(/^(.*?)\s+(\d+(?:\.\d+)?)\s*%$/); return m ? { name: m[1], pct: Number(m[2]) } : { name: l, pct: null }; });
+        let prod = prods.find((p) => p.firm_id === firm && p.name.toLowerCase() === b.name.trim().toLowerCase()); let pid = prod?.id;
+        if (!pid) { const r = await supabase.from("reg_products").insert({ firm_id: firm, name: b.name.trim(), approval_file: path || null }).select("*").single(); if (r.error) throw r.error; pid = r.data.id; prod = r.data; made++; }
+        else if (!prod.approval_file && path) await supabase.from("reg_products").update({ approval_file: path }).eq("id", pid);
+        const { data: have } = await supabase.from("reg_formula_lines").select("id").eq("product_id", pid).limit(1);
+        if (!have?.length) {
+          const rows = items.map((it, i) => { const m = match(it.name); return { product_id: pid, position: i + 1, ingredient_id: m?.id || null, label: it.name, inci_name: m?.inci_name || null, cas: m?.cas || null, pct: it.pct }; });
+          const r = await supabase.from("reg_formula_lines").insert(rows); if (r.error) throw r.error;
+        }
+        if (makeMsds) {
+          const { data: lines } = await supabase.from("reg_formula_lines").select("*").eq("product_id", pid).order("position");
+          const mine = (sheets || []).filter((s) => s.product_id === pid); const version = mine.reduce((a, s) => Math.max(a, s.version), 0) + 1;
+          const seq = (sheets || []).filter((s) => prods.find((p) => p.id === s.product_id)?.firm_id === firm).length + sheetsMade + 1; const docNo = `${firm}/MSDS/${String(seq).padStart(3, "0")}`;
+          const prodFull = { ...(prod || {}), firm_id: firm, name: b.name.trim(), physchem: prod?.physchem || {} };
+          const content = buildMsds({ product: prodFull, lines: lines || [], ingredients: ings, firm: firms?.[firm], template: tpl, preparedBy: me.full_name, docNo, version });
+          const r = await supabase.from("reg_msds").insert({ product_id: pid, version, doc_no: docNo, content, prepared_by_name: me.full_name, prepared_on: todayISO(), review_due: content.meta.review_due }).select("*").single();
+          if (r.error) throw r.error; sheetsMade++; if (!first) first = r.data;
+        }
+      }
+      toast(`${made} product${made === 1 ? "" : "s"} added${makeMsds ? `, ${sheetsMade} MSDS draft${sheetsMade === 1 ? "" : "s"} started` : ""}`);
+      regProducts.reload(); onDone(first);
+    } catch (x) { toast(x.message || "Something went wrong.", "err"); }
+    setBusy(false);
+  };
+
+  return (
+    <Modal title={step === 1 ? "MSDS from an approval sheet" : "Check the products found"} onClose={onClose} wide
+      actions={step === 1 ? <><button className="btn-ghost" onClick={onClose}>Cancel</button><button className="btn-primary" onClick={read} disabled={busy || !text.trim()}>Read the list</button></>
+        : <><button className="btn-ghost" onClick={() => setStep(1)}>Back</button><button className="btn-primary" onClick={create} disabled={busy}>{busy ? "Creating…" : makeMsds ? "Create products and MSDS drafts" : "Create products"}</button></>}>
+      {step === 1 && <>
+        <div className="small-muted" style={{ marginBottom: 8 }}>Upload the FDA approval sheet (PDF or picture). The file is kept with the product. Each product on it gets its formula, and an MSDS draft is started for it.</div>
+        <div className="form-grid">
+          <Field label="Firm"><select className="form-inp" value={firm} onChange={(e) => setFirm(e.target.value)}>{FIRMS.map((x) => <option key={x} value={x}>{x} · {FIRM_NAMES[x]}</option>)}</select></Field>
+          <Field label="Approval sheet (PDF or picture)"><input type="file" accept="application/pdf,image/*" onChange={onFile} disabled={busy} /></Field>
+        </div>
+        {busy && <div className="loading">Reading the file…</div>}
+        {note && <div className="bd-split">{note}</div>}
+        <div className="rg-wiz">
+          {view && <div className="rg-wiz-view">{isImg ? <img src={view} alt="Approval sheet" /> : <iframe title="Approval sheet" src={view} />}</div>}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <Field label="Text of the approval" hint="A product name on its own line (for example “1. Face Toner”), then its ingredients separated by commas. Several products on one sheet are fine. An ingredient can end with its percentage, for example “Niacinamide 5%”.">
+              <textarea className="form-inp" rows={12} value={text} onChange={(e) => setText(e.target.value)} placeholder={"1. Face Toner\nWater, Propylene Glycol, Polysorbate 20, …\n\n2. Exfoliating Face Wash\nAqua, Sodium Laureth Sulfate, …"} />
+            </Field>
+          </div>
+        </div>
+      </>}
+      {step === 2 && <>
+        <label className="chk" style={{ marginBottom: 8 }}><input type="checkbox" checked={makeMsds} onChange={(e) => setMakeMsds(e.target.checked)} /> Also start an MSDS draft for each product</label>
+        {blocks.map((b, i) => (
+          <div key={i} className="bd-split">
+            <label className="chk"><input type="checkbox" checked={b.include} onChange={(e) => upd(i, { include: e.target.checked })} /> <b>Product {i + 1}</b></label>
+            <Field label="Product name"><input className="form-inp" value={b.name} onChange={(e) => upd(i, { name: e.target.value })} /></Field>
+            <Field label={`Ingredients (${String(b.list).split("\n").filter((l) => l.trim()).length}), one per line, in the order of the approval`}><textarea className="form-inp" rows={7} value={b.list} onChange={(e) => upd(i, { list: e.target.value })} /></Field>
+          </div>))}
+        <div className="small-muted">A product that already exists keeps its formula; only its MSDS draft is added.</div>
+      </>}
+    </Modal>
   );
 }
 

@@ -210,7 +210,40 @@ export async function toDocx(msds, { approvedBy, approvedOn, status } = {}) {
   return Packer.toBlob(doc);
 }
 
-// split an approval's ingredient list ("Water, Propylene Glycol, Polysorbate 20 …") into lines
+// split an approval's ingredient list ("Water, Propylene Glycol, Polysorbate 20 …") into names; commas inside brackets stay together
 export function splitIngredientList(text) {
-  return String(text || "").replace(/\s+/g, " ").split(/[,;\n]+/).map((s) => s.trim()).filter(Boolean);
+  const t = String(text || "").replace(/\s+/g, " ").trim(); const out = []; let depth = 0, cur = "";
+  for (const ch of t) {
+    if (ch === "(" || ch === "[" || ch === "{") depth++;
+    if (ch === ")" || ch === "]" || ch === "}") depth = Math.max(0, depth - 1);
+    if ((ch === "," || ch === ";" || ch === "\n") && depth === 0) { if (cur.trim()) out.push(cur.trim()); cur = ""; } else cur += ch;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}
+
+// "Cetearyl Olivate 5%" -> { name, pct }
+export function ingredientWithPct(raw) {
+  const t = String(raw || "").replace(/\s+/g, " ").trim().replace(/^[\-•·*\d]+[.)]\s+/, "");
+  const m = t.match(/^(.*?)[\s(]*(\d+(?:\.\d+)?)\s*%\)?\s*$/);
+  return m && m[1].trim() ? { name: m[1].trim().replace(/[\s,]+$/, ""), pct: Number(m[2]) } : { name: t.replace(/[\s,.]+$/, ""), pct: null };
+}
+
+// read an FDA approval sheet's text: "1. Face Toner  water, Propylene Glycol, … 2. Exfoliating Face Wash  Aqua, …" -> one block per product
+export function parseApprovalText(text, fallbackName = "") {
+  const t = String(text || "").replace(/\r/g, "").replace(/[ \t]+/g, " ");
+  const re = /(?:^|\n)\s*(\d{1,3})\s*[.,)]\s+([A-Za-z][^\n]{2,90})(?=\n)/g;
+  const heads = []; let m;
+  while ((m = re.exec(t))) heads.push({ no: m[1], name: m[2].trim(), at: m.index, end: m.index + m[0].length });
+  const blocks = [];
+  if (heads.length) {
+    heads.forEach((h, i) => { const body = t.slice(h.end, i + 1 < heads.length ? heads[i + 1].at : t.length); blocks.push({ name: h.name, body }); });
+  } else if (t.trim()) blocks.push({ name: fallbackName, body: t });
+  const stop = /(approved|joint commissioner|licensing authority|drugs[- ]cum|kharar|signature|page \d)/i;
+  return blocks.map((b) => {
+    let body = b.body.replace(/^\s*(ingredients?|composition)\s*[:\-]?\s*/i, "");
+    const cut = body.search(stop); if (cut > 40) body = body.slice(0, cut);
+    const items = splitIngredientList(body.replace(/\n/g, " ")).map(ingredientWithPct).filter((x) => x.name && x.name.length > 1 && x.name.length < 160);
+    return { name: b.name.replace(/\s+/g, " ").trim(), items };
+  }).filter((b) => b.items.length >= 2);
 }
