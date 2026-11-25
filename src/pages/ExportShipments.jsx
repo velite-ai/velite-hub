@@ -7,6 +7,7 @@ import { fmtD, fmtM, todayISO, stateOf, STATE_LABEL, STATE_COLOR } from "../lib/
 import { normName } from "../lib/export";
 import { packLines, totals, lineAmount, preflight } from "../lib/shipment";
 import Papers from "./ExportPapers";
+import { saveAttachment, openFile } from "./ExportAudit";
 
 // Shipments: choose country and party, add products and batches, type the invoice number and exchange rate.
 // The check below the form says what is missing or wrong before any paper is made.
@@ -80,6 +81,10 @@ export function Editor({ ship, lines: saved, d, batchState, onClose, onSaved, on
     return { ...blankLine(), ...l, key: newKey(), product_hsn: pr?.hsn || "", brand_owner: pr?.brand_owner || "", manual: !l.batch_id && !!l.batch_no, mfg: l.mfg || "", exp: l.exp || "", qty: l.qty ?? "", rate: l.rate ?? "", pcs_per_carton: l.pcs_per_carton ?? "", net_kg: l.net_kg ?? "", gross_kg: l.gross_kg ?? "", partial_net: l.partial_net ?? "", partial_gross: l.partial_gross ?? "" };
   }));
   const [busy, setBusy] = useState(false);
+  const [orderFile, setOrderFile] = useState(null); const [orders, setOrders] = useState([]);
+  const loadOrders = async () => { if (!ship) return; const { data } = await supabase.from("exp_attachments").select("id,file_path,file_name,created_at").eq("shipment_id", ship.id).eq("kind", "po").order("created_at"); setOrders(data || []); };
+  useEffect(() => { loadOrders(); }, []); // eslint-disable-line
+  const removeOrder = async (o) => { if (!(await ask({ title: "Remove this copy of the order?", okText: "Remove", danger: true }))) return; if (o.file_path) await supabase.storage.from("export").remove([o.file_path]); const r = await run(supabase.from("exp_attachments").delete().eq("id", o.id), "Removed"); if (r.ok) loadOrders(); };
   const isPI = s.status === "proforma";
   const set = (k) => (e) => setS((x) => ({ ...x, [k]: e.target.value }));
   // proforma number follows the usual pattern from the date (PI_VH_dd.mm.yyyy, VI_PI_dd.mm.yyyy); a second one on the same day gets _2
@@ -142,6 +147,7 @@ export function Editor({ ship, lines: saved, d, batchState, onClose, onSaved, on
       const w = l.id ? await run(supabase.from("exp_shipment_lines").update(lb).eq("id", l.id)) : await run(supabase.from("exp_shipment_lines").insert(lb));
       if (!w.ok) { setBusy(false); return; }
     }
+    if (orderFile) { const ok = await saveAttachment(id, "po", orderFile, { ref_no: txt(s.po_no), doc_date: s.po_date || null }); if (!ok) { setBusy(false); toast("The shipment was saved but the order file could not be stored. Open it again and add the order.", "err"); onSaved(); return; } }
     setBusy(false); toast("Shipment saved"); onSaved(); onClose();
   };
   const del = async () => {
@@ -186,6 +192,11 @@ export function Editor({ ship, lines: saved, d, batchState, onClose, onSaved, on
           <Field label="Proforma date"><input className="form-inp" type="date" value={s.proforma_date || ""} onChange={(e) => autoPI({ proforma_date: e.target.value })} /></Field>
           <Field label="Buyer's order (PO) no."><input className="form-inp" value={s.po_no || ""} onChange={set("po_no")} /></Field>
           <Field label="PO date"><input className="form-inp" type="date" value={s.po_date || ""} onChange={set("po_date")} /></Field>
+          <Field label="Buyer's order (PDF)" hint="A copy is saved with this shipment. You will also be asked for it when you make the proforma.">
+            {orders.map((o) => <div key={o.id} className="small-muted"><a href="#open" onClick={(e) => { e.preventDefault(); openFile(o.file_path); }}>{o.file_name || "order"}</a> <button className="btn-ghost sm" onClick={() => removeOrder(o)}>Remove</button></div>)}
+            <input type="file" accept=".pdf,image/*,.xlsx,.xls,.csv,.doc,.docx" onChange={(e) => setOrderFile(e.target.files?.[0] || null)} />
+            {orderFile && <div className="small-muted">{orderFile.name} will be saved when you press Save shipment.</div>}
+          </Field>
           <Field label="Invoice currency"><select className="form-inp" value={s.currency} onChange={set("currency")}><option>INR</option><option>USD</option></select></Field>
           {!isPI && s.currency !== "INR" && <Field label={`Exchange rate (₹ per ${s.currency})`} hint="Typed by hand for the invoice day."><input className="form-inp" value={s.exchange_rate ?? ""} onChange={set("exchange_rate")} inputMode="decimal" /></Field>}
         </div>

@@ -75,6 +75,7 @@ function proformaAudit(c, items, passed, add, group, tot) {
     lines.forEach((l) => { if (l.hsn) miss("the HSN code", l.hsn); });
   });
   if (c.saved.proforma && c.saved.proforma.input_hash !== fingerprint(pi)) add("warn", "Papers", `The saved copy of Proforma invoice v${c.saved.proforma.version} no longer matches the order (it was changed afterwards). Print again so the saved copy is current.`);
+  if (!(c.attachments || []).some((a) => a.kind === "po")) add("warn", "Order", "No copy of the buyer's order is saved with this shipment. Attach it under Outside documents (a proforma is made against the order).");
   add("info", "Next step", "When the buyer confirms and the goods are ready, change the status to “Preparing dispatch” to add batches, cartons, the invoice number and the other papers.");
   return { items, passed, errors: items.filter((i) => i.level === "error").length, warnings: items.filter((i) => i.level === "warn").length, papers: { proforma: pi } };
 }

@@ -23,7 +23,17 @@ export function AuditPanel({ audit }) {
   );
 }
 
-async function openFile(path) {
+// store a file in the private bucket and record it with the shipment (used for the buyer's order and by the form below)
+export async function saveAttachment(shipmentId, kind, file, { ref_no = null, doc_date = null, notes = null } = {}) {
+  const path = `${shipmentId}/${crypto.randomUUID()}-${file.name.replace(/[^\w.-]+/g, "_")}`;
+  const up = await supabase.storage.from("export").upload(path, file, { contentType: file.type || undefined });
+  if (up.error) { toast(up.error.message, "err"); return false; }
+  const r = await run(supabase.from("exp_attachments").insert({ shipment_id: shipmentId, kind, title: attachKind(kind).label, ref_no, doc_date, notes, facts: {}, file_path: path, file_name: file.name }));
+  if (!r.ok) { await supabase.storage.from("export").remove([path]); return false; }
+  return true;
+}
+
+export async function openFile(path) {
   const { data, error } = await supabase.storage.from("export").createSignedUrl(path, 300);
   if (error) { toast(error.message, "err"); return; }
   window.open(data.signedUrl, "_blank", "noopener");
@@ -89,6 +99,19 @@ function RecordForm({ ship, row, onClose, onSaved }) {
       <Field label="Notes"><input className="form-inp" value={f.notes} onChange={(e) => setF((x) => ({ ...x, notes: e.target.value }))} /></Field>
       {typed.length > 0 && <div className="small-muted">Type what is printed on the document. The audit compares it with this shipment ({ship.invoice_no || "invoice not numbered"}).</div>}
       {dialog}
+    </Modal>
+  );
+}
+
+// Asked when a proforma is about to be made and no copy of the buyer's order is saved
+export function OrderPrompt({ ship, onSaved, onSkip, onClose }) {
+  const [file, setFile] = useState(null); const [busy, setBusy] = useState(false);
+  const save = async () => { if (!file) { toast("Choose the order file first", "err"); return; } setBusy(true); const ok = await saveAttachment(ship.id, "po", file, { ref_no: ship.po_no, doc_date: ship.po_date }); setBusy(false); if (ok) { toast("Order saved with this shipment"); onSaved(); } };
+  return (
+    <Modal title="Attach the buyer's order" onClose={onClose}
+      actions={<><button className="btn-ghost" onClick={onSkip} style={{ marginRight: "auto" }}>No written order, make the proforma anyway</button><button className="btn-ghost" onClick={onClose}>Cancel</button><button className="btn-primary" onClick={save} disabled={busy || !file}>{busy ? "Saving…" : "Save the order and continue"}</button></>}>
+      <p className="modal-text">A proforma invoice is made against the buyer's order. Attach the order (usually a PDF) so a copy is kept with this shipment.</p>
+      <input type="file" accept=".pdf,image/*,.xlsx,.xls,.csv,.doc,.docx" onChange={(e) => setFile(e.target.files?.[0] || null)} />
     </Modal>
   );
 }

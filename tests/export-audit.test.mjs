@@ -59,5 +59,8 @@ console.log("export audit tests passed");
   const bad = auditShipment({ ...base, s: { ...po, proforma_no: "" }, lines: [{ ...pl[0], rate: "" }] });
   assert.ok(bad.items.some((i) => i.text.includes("proforma number")) && bad.items.some((i) => i.text.includes("rate is missing")));
   assert.deepEqual(Object.keys(r.papers), ["proforma"]);
+  assert.ok(r.items.some((i) => i.area === "Order" && i.level === "warn"));                       // no copy of the buyer's order yet
+  const withOrder = auditShipment({ ...base, s: po, lines: pl, attachments: [{ kind: "po", file_path: "x", facts: {} }] });
+  assert.ok(!withOrder.items.some((i) => i.area === "Order"));
   console.log("proforma stage tests passed");
 }

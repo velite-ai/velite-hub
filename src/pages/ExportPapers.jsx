@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "../supabase";
 import { toast } from "../lib/data";
@@ -6,7 +6,7 @@ import { Empty } from "../components/ui";
 import { KINDS, buildPaper, paperContext, kindOfCountryDoc, fingerprint } from "../lib/exportDocs";
 import { paperToDocx } from "../lib/exportDocx";
 import { auditShipment } from "../lib/exportAudit";
-import { AuditPanel, Records } from "./ExportAudit";
+import { AuditPanel, Records, OrderPrompt } from "./ExportAudit";
 import { todayISO } from "../lib/qc";
 
 // Papers of one shipment: preview, print, Word, and an automatic saved copy every time a paper is printed or downloaded.
@@ -38,7 +38,7 @@ export function Paper({ paper }) {
 
 export default function Papers({ ship, lines, d, batchState, onClose }) {
   const [kind, setKind] = useState(ship.status === "proforma" ? "proforma" : "invoice"); const [plain, setPlain] = useState(readPlain); const [anyway, setAnyway] = useState(false);
-  const [saved, setSaved] = useState([]); const [atts, setAtts] = useState([]); const [printing, setPrinting] = useState(null); const [view, setView] = useState(null);
+  const [ask, setAsk] = useState(null); const orderOk = useRef(false); const [saved, setSaved] = useState([]); const [atts, setAtts] = useState([]); const [printing, setPrinting] = useState(null); const [view, setView] = useState(null);
   const togglePlain = (v) => { setPlain(v); try { localStorage.setItem(PLAIN_KEY, v ? "1" : "0"); } catch { /* ignore */ } };
   const loadSaved = async () => { const { data } = await supabase.from("exp_documents").select("id,kind,title,version,input_hash,created_by_name,created_at,content").eq("shipment_id", ship.id).order("created_at", { ascending: false }); setSaved(data || []); };
   const loadAtts = async () => { const { data } = await supabase.from("exp_attachments").select("*").eq("shipment_id", ship.id); setAtts(data || []); };
@@ -62,8 +62,10 @@ export default function Papers({ ship, lines, d, batchState, onClose }) {
     if (r.error) { toast(`The paper was made but the copy could not be saved: ${r.error.message}`, "err"); return; }
     toast(`Saved copy: ${p.title} v${(last?.version || 0) + 1}`); loadSaved();
   };
+  const needsOrder = (p) => !view && p.kind === "proforma" && !orderOk.current && !atts.some((a) => a.kind === "po");
   const print = async (p) => {
     if (blocked && !view) return;
+    if (needsOrder(p)) { setAsk(() => () => print(p)); return; }
     if (!view) await saveCopy(p);
     setPrinting(p); document.body.classList.add("ex-printing");
     const st = document.createElement("style"); st.id = "ex-page-style"; st.textContent = `@page{size:A4 ${p.landscape ? "landscape" : "portrait"};margin:10mm;}`; document.head.appendChild(st);
@@ -71,6 +73,7 @@ export default function Papers({ ship, lines, d, batchState, onClose }) {
   };
   const word = async (p) => {
     if (blocked && !view) return;
+    if (needsOrder(p)) { setAsk(() => () => word(p)); return; }
     if (!view) await saveCopy(p);
     const blob = await paperToDocx(p); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${(p.file || p.title).replace(/[^\w .-]+/g, "")}.docx`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   };
@@ -101,6 +104,7 @@ export default function Papers({ ship, lines, d, batchState, onClose }) {
         <button className="btn-ghost" onClick={() => word(paper)} disabled={blocked && !view}>⬇ Word</button>
         <button className="btn-primary" onClick={() => print(paper)} disabled={blocked && !view}>🖨 Print / save as PDF</button>
       </div>
+      {!view && kind === "proforma" && !atts.some((a) => a.kind === "po") && <div className="rg-note amber">No copy of the buyer's order is saved with this shipment. You will be asked for it when you print or download the proforma, or add it under Outside documents below.</div>}
       {view && <div className="rg-note amber">Showing the saved copy: {view.title} v{view.version}, {stamp(view.created_at)} by {view.created_by_name}. Printing it does not make a new version.</div>}
       <div className="ep-scroll"><Paper paper={paper} /></div>
       <div className="small-muted" style={{ margin: "6px 0" }}>The Hub prints the signatory’s name only. Sign and stamp the printout by hand. Every print or Word download saves a copy; a new version is added only when the paper has changed.</div>
@@ -110,6 +114,7 @@ export default function Papers({ ship, lines, d, batchState, onClose }) {
           <div key={x.id} className="qc-row"><span className="qc-row-main"><b>{x.title} v{x.version}</b><small>{stamp(x.created_at)} · {x.created_by_name}</small></span><button className="btn-ghost sm" onClick={() => { setView({ ...x, content: x.content }); window.scrollTo(0, 0); }}>View</button></div>))}
       </div>
       <Records ship={ship} rows={atts} reload={loadAtts} />
+      {ask && <OrderPrompt ship={ship} onClose={() => setAsk(null)} onSkip={() => { const go = ask; orderOk.current = true; setAsk(null); setTimeout(go, 0); }} onSaved={async () => { const go = ask; orderOk.current = true; await loadAtts(); setAsk(null); setTimeout(go, 0); }} />}
       {printing && createPortal(<div id="exp-print"><Paper paper={printing} /></div>, document.body)}
     </div>
   );
