@@ -58,6 +58,11 @@ const il = buildPaper("ingredients", paperContext(s, [mylines[0]], my, true, [],
 assert.ok(text(il).includes("INGREDIENT LIST WITH PERCENTAGE COMPOSITION") && text(il).includes("Aqua") && text(il).includes('"Total","100"'));
 assert.ok(text(buildPaper("ingredients", paperContext(s, [mylines[0]], my, true, [], {}))).includes("formula not available"));
 assert.equal(kindOfCountryDoc("Ingredient list with percentages"), "ingredients");
+// Customs office of the non-narcotics letter: Mundra for sea (Yemen), IGIA for air (Iraq)
+const sea = { ...s, transport_mode: "road+sea", entry_point: "Mundra Port (INMUN1)" };
+const nm = buildPaper("narcotics", paperContext(sea, lines, d, true));
+assert.ok(text(nm).includes("The Assistant Commissioner of Customs") && text(nm).includes("Mundra Port") && !text(nm).includes("IGIA"));
+assert.ok(text(buildPaper("narcotics", paperContext({ ...s, transport_mode: "air", entry_point: "IGI Airport New Delhi (INDEL4)" }, lines, d, true))).includes("IGIA, Cargo Complex"));
 console.log("export document tests passed");
 
 // Carton text: one label per carton, brand owner and manufacturer lines
