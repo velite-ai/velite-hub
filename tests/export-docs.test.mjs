@@ -73,7 +73,8 @@ console.log("export document tests passed");
   const labels = ct.blocks.filter((b) => b.t === "row").flatMap((b) => b.items);
   assert.equal(labels.length, 14);                                                     // 1000 pcs, 72 per carton: 14 cartons
   assert.equal(labels[0].label, "Carton 1 of 14"); assert.equal(labels[13].label, "Carton 14 of 14");
-  assert.ok(labels[0].lines.some((x) => x.includes("BRAND OWNER: OTC PHARMA, Baghdad, Iraq")) && labels[0].lines.some((x) => x.includes("Mfg. Lic. No. 89-COS-PB")));
+  assert.ok(labels[0].lines.includes("MANUFACTURED FOR: OTC PHARMA, Baghdad, Iraq") && labels[0].lines.includes("DISTRIBUTED BY: OTC PHARMA, Baghdad, Iraq"));
+  assert.ok(labels[0].lines.some((x) => x.includes("MANUFACTURED BY: VELITE HEALTHCARE") && x.includes("Mfg. Lic. No. 89-COS-PB")));
   assert.ok(labels[0].lines.some((x) => x.includes("QUANTITY: 72 pcs")) && labels[13].lines.some((x) => x.includes("QUANTITY: 64 pcs")));
   assert.ok(labels[0].lines.includes("FOR SALE IN IRAQ ONLY"));
   assert.equal(kindOfCountryDoc("Brand-owner carton text"), "carton");
