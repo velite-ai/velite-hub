@@ -61,6 +61,13 @@ export function DataProvider({ me, children }) {
   const canReg = isStaff || !!me.reg_access;                // Regulatory: owners, managers and people ticked in Admin
   const regIngredients = useTable("reg_ingredients", { enabled: canReg, order: "name", ascending: true });
   const regProducts = useTable("reg_products", { enabled: canReg, order: "name", ascending: true });
+  const canExport = isOwner || !!me.export_access;          // Export: owners and people ticked in Admin
+  const expFirms = useTable("exp_firms", { enabled: canExport, order: "id", ascending: true });
+  const expParties = useTable("exp_parties", { enabled: canExport, order: "name", ascending: true });
+  const expAgents = useTable("exp_agents", { enabled: canExport, order: "name", ascending: true });
+  const expProducts = useTable("exp_products", { enabled: canExport, order: "name", ascending: true });
+  const expPrices = useTable("exp_prices", { enabled: canExport, order: "created_at" });
+  const expCountries = useTable("exp_countries", { enabled: canExport, order: "country", ascending: true });
   const tasks = useTable("hub_tasks");
   const comments = useTable("hub_comments", { ascending: true });
   const goals = useTable("hub_goals", { enabled: isOwner });
@@ -82,7 +89,7 @@ export function DataProvider({ me, children }) {
   const cmpDocs = useTable("hub_cmp_docs", { enabled: isStaff, order: "created_at", ascending: true });
   const chkHeads = useTable("hub_chk_heads", { enabled: isStaff, order: "dept", ascending: true });
 
-  const value = { me, isOwner, isStaff, matLists, canQc, qc, canBatch, canBatchEdit, batches, products, canReg, regIngredients, regProducts, profiles, materials, tasks, comments, goals, goalItems, trademarks,
+  const value = { me, isOwner, isStaff, matLists, canQc, qc, canBatch, canBatchEdit, batches, products, canReg, regIngredients, regProducts, canExport, expFirms, expParties, expAgents, expProducts, expPrices, expCountries, profiles, materials, tasks, comments, goals, goalItems, trademarks,
     iprNotices, iprThird, iprDocs, iprMatters, iprOptions,
     cmpItems, cmpLib, cmpFirms, cmpAssign, cmpLic, chkPoints, chkAnswers, chkHeads, cmpDocs, notifs };
   return <DataCtx.Provider value={value}>{children}</DataCtx.Provider>;
