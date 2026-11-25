@@ -48,3 +48,29 @@ export function lastPack(rows, firm, product, excludeId) {
   return null;
 }
 export const packText = (num, unit) => (String(num || "").trim() ? `${String(num).trim()} ${unit || "ml"}` : null);
+
+// ── the next batch number ────────────────────────────────────────────────────
+// Velite Pharmaceuticals (VP): V-001 for "other", 001 for tubes; the number restarts every calendar year.
+// Velite Healthcare (VH): a running number that carries on across the years: H + first two letters or digits of the product + "-" + number
+// (HSK-1275, HN1-1262) for "other", and a plain 3-digit number for tubes (558, after 999 it starts again at 001).
+// The next number is the highest one among the batches of the latest two manufacturing months, plus one.
+export function suggestBatchNo(rows, firm, kind, product, mfg) {
+  const year = mfg ? +mfg.slice(0, 4) : new Date().getFullYear();
+  const num = (b) => { const m = String(b || "").match(/(\d+)[A-Za-z]?$/); return m ? +m[1] : null; };
+  const mine = rows.filter((r) => !r.deleted_at && r.firm_id === firm && r.kind === kind);
+  if (firm === "VP") {
+    const used = mine.filter((r) => r.series_year === year).map((r) => num(r.group_no || r.batch_no)).filter((n) => n != null);
+    const next = (used.length ? Math.max(...used) : 0) + 1;
+    return kind === "other" ? `V-${String(next).padStart(3, "0")}` : String(next).padStart(3, "0");
+  }
+  if (firm === "VH") {
+    const withNo = mine.map((r) => ({ m: String(r.mfg || "").slice(0, 7), n: num(r.group_no || r.batch_no) })).filter((x) => x.m && x.n != null && x.n < 100000);
+    if (!withNo.length) return "";
+    const months = [...new Set(withNo.map((x) => x.m))].sort().reverse().slice(0, 2);
+    let next = Math.max(...withNo.filter((x) => months.includes(x.m)).map((x) => x.n)) + 1;
+    if (kind === "tube") { if (next > 999) next = 1; return String(next).padStart(3, "0"); }
+    const prefix = String(product || "").replace(/[^A-Za-z0-9]/g, "").slice(0, 2).toUpperCase();
+    return prefix.length < 2 ? "" : `H${prefix}-${next}`;
+  }
+  return "";
+}
