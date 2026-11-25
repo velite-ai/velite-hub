@@ -8,6 +8,7 @@ import QcRelease from "./pages/QcRelease";
 import BatchDetail from "./pages/BatchDetail";
 import DailyReport from "./pages/DailyReport";
 import Regulatory from "./pages/Regulatory";
+import Export from "./pages/Export";
 import Tasks from "./pages/Tasks";
 import Compass from "./pages/Compass";
 import Trademarks from "./pages/Trademarks";
@@ -109,6 +110,7 @@ const TABS = [
   { k: "tasks", label: "✅ Tasks" },
   { k: "daily", label: "📝 Daily Report" },
   { k: "regulatory", label: "📋 Regulatory", regTab: true },
+  { k: "export", label: "🚢 Export", expTab: true },
   { k: "compliance", label: "🛡️ Compliance", staff: true },
   { k: "ipr", label: "⚖️ Trademarks", staff: true },
   { k: "compass", label: "🧭 Business Compass", owner: true },
@@ -124,8 +126,8 @@ function useHashTab(allowed) {
 }
 
 function Shell({ onSignOut, reloadMe }) {
-  const { me, isOwner, isStaff, matLists, canQc, canBatch, canReg, tasks, profiles, cmpItems } = useData();
-  const tabs = TABS.filter((t) => (!t.owner || isOwner) && (!t.staff || isStaff) && (!t.mat || matLists.length > 0) && (!t.qcTab || canQc) && (!t.batchTab || canBatch) && (!t.regTab || canReg));
+  const { me, isOwner, isStaff, matLists, canQc, canBatch, canReg, canExport, tasks, profiles, cmpItems } = useData();
+  const tabs = TABS.filter((t) => (!t.owner || isOwner) && (!t.staff || isStaff) && (!t.mat || matLists.length > 0) && (!t.qcTab || canQc) && (!t.batchTab || canBatch) && (!t.regTab || canReg) && (!t.expTab || canExport));
   const [tab, go] = useHashTab(tabs.map((t) => t.k));
   const [acct, setAcct] = useState(false);
   const alerts = myAlerts(tasks, me) + cmpAlerts(cmpItems, me);
@@ -160,6 +162,7 @@ function Shell({ onSignOut, reloadMe }) {
         {tab === "batches" && canBatch && <BatchDetail go={go} />}
         {tab === "daily" && <DailyReport />}
         {tab === "regulatory" && canReg && <Regulatory />}
+        {tab === "export" && canExport && <Export />}
         {tab === "tasks" && <Tasks />}
         {tab === "compliance" && isStaff && <Compliance />}
         {tab === "ipr" && isStaff && <Trademarks />}
