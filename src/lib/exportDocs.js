@@ -35,7 +35,7 @@ const up = (s) => String(s || "").toUpperCase();
 const MODE = { road: "BY ROAD", air: "BY AIR", sea: "BY SEA", "road+sea": "BY ROAD, THEN BY SEA", "air+road": "BY AIR, THEN BY ROAD" };
 
 export const KINDS = [
-  ["proforma", "Proforma invoice"], ["invoice", "Export invoice"], ["packing", "Packing list"], ["coo", "Certificate of origin"], ["declaration", "Declaration"], ["nondg", "Non-DG declaration"], ["narcotics", "Non-narcotics letter"], ["loa", "Letter of authority"], ["ingredients", "Ingredient list"],
+  ["proforma", "Proforma invoice"], ["invoice", "Export invoice"], ["packing", "Packing list"], ["coo", "Certificate of origin"], ["declaration", "Declaration"], ["nondg", "Non-DG declaration"], ["narcotics", "Non-narcotics letter"], ["loa", "Letter of authority"], ["ingredients", "Ingredient list"], ["carton", "Carton text"],
 ];
 
 // the edition of the IATA Dangerous Goods Regulations named in the declaration, as in the firm's own format
@@ -45,6 +45,7 @@ export const DGR_EDITION = "65th";
 export function kindOfCountryDoc(name) {
   const s = String(name).toLowerCase();
   if (/e-invoice|e-way/.test(s)) return null;
+  if (/carton text|carton marking/.test(s)) return "carton";
   if (/proforma/.test(s)) return "proforma";
   if (/non-?dg|dangerous/.test(s)) return "nondg";
   if (/narcotic/.test(s)) return "narcotics";
@@ -149,6 +150,20 @@ export function buildPaper(kind, c) {
       { t: "para", text: `S/B No.: ${sb ? sb.ref_no || sb.facts?.ref_no || "" : "____________"}        Dt.: ${sb && (sb.doc_date || sb.facts?.doc_date) ? dmy(sb.doc_date || sb.facts.doc_date, ".") : "____________"}\nInv. No. ${s.invoice_no || ""}   DATED ${dmy(s.invoice_date, ".")}` },
       { t: "para", text: "Thanking You\nYours truly" }, sign(f)] };
   }
+  if (kind === "carton") {
+    const n = pk.boxes; const cr = c.country; const bo = c.brandOwner;
+    const labels = [];
+    pk.rows.filter((r) => !r.unknown).forEach((r) => { const l = lines[r.line]; for (let k = r.from; k <= r.to; k++) labels.push({ k, r, l }); });
+    const item = ({ k, r, l }) => ({ label: `Carton ${k} of ${n}`, lines: [
+      bo && `BRAND OWNER: ${bo.name}${bo.address ? `, ${bo.address}` : ""}`,
+      `MANUFACTURED BY: ${up(f.name)}, ${f.address || ""}${f.dl_no ? `. Mfg. Lic. No. ${f.dl_no}` : ""}`,
+      `PRODUCT: ${l.name}`, `BATCH: ${l.batch_no || ""}   MFG: ${mmyy(l.mfg)}   EXP: ${mmyy(l.exp)}`,
+      `QUANTITY: ${r.perBox} pcs   NET: ${num(r.netPerBox)} kg   GROSS: ${num(r.grossPerBox)} kg`,
+      `COUNTRY OF ORIGIN: INDIA   DESTINATION: ${up(s.country)}`, cr?.label_rule].filter(Boolean) });
+    const blocks = [head(f, c.plain), { t: "title", text: "CARTON TEXT", sub: `Invoice ${s.invoice_no || ""} · ${n} cartons` }, { t: "para", text: "Print and stick one label on each carton (draft wording: check it against the brand owner's and the importing country's requirements).", small: true }];
+    for (let i = 0; i < labels.length; i += 2) blocks.push({ t: "row", items: labels.slice(i, i + 2).map(item) });
+    return { kind, title: "Carton text", file: `Carton text ${s.invoice_no || ""}`, blocks };
+  }
   if (kind === "loa") {
     const au = p?.authority || {}; const names = [...new Set(lines.map((l) => l.name).filter(Boolean))];
     const marks = String(au.trademarks || "").split(/[,;\n]+/).map((x) => x.trim()).filter(Boolean); const mk = marks.length ? ` under the trademark${marks.length > 1 ? "s" : ""} ${marks.map((m) => `"${m}"`).join(" and ")}` : "";
@@ -182,7 +197,7 @@ export function buildPaper(kind, c) {
 // everything needed to build the papers of one shipment
 export function paperContext(s, lines, d, plain, attachments = [], formulas = {}) {
   return { s, lines: lines.map((l, i) => ({ ...l, __i: i })), firm: d.firms.find((f) => f.id === s.firm_id), party: d.parties.find((x) => x.id === s.party_id), notify: d.parties.find((x) => x.id === s.notify_id) || null,
-    brandOwner: d.parties.find((x) => x.id === s.brand_owner_id) || null, transporter: d.agents.find((x) => x.id === s.transporter_id) || null, agent: d.agents.find((x) => x.id === s.agent_id) || null, plain, attachments, formulas, products: d.products || [] };
+    brandOwner: d.parties.find((x) => x.id === s.brand_owner_id) || null, transporter: d.agents.find((x) => x.id === s.transporter_id) || null, agent: d.agents.find((x) => x.id === s.agent_id) || null, plain, attachments, formulas, products: d.products || [], country: (d.countries || []).find((x) => x.country === s.country) || null };
 }
 
 // a short fingerprint of a paper's content (the letterhead choice is ignored), to know whether a saved copy is still current

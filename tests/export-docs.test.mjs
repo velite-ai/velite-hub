@@ -59,3 +59,18 @@ assert.ok(text(il).includes("INGREDIENT LIST WITH PERCENTAGE COMPOSITION") && te
 assert.ok(text(buildPaper("ingredients", paperContext(s, [mylines[0]], my, true, [], {}))).includes("formula not available"));
 assert.equal(kindOfCountryDoc("Ingredient list with percentages"), "ingredients");
 console.log("export document tests passed");
+
+// Carton text: one label per carton, brand owner and manufacturer lines
+{
+  const dd = { ...d, parties: [...d.parties, { id: "bo", name: "OTC PHARMA", address: "Baghdad, Iraq", ids: {} }], countries: [{ country: "Iraq", label_rule: "FOR SALE IN IRAQ ONLY" }] };
+  const sh = { ...s, country: "Iraq", brand_owner_id: "bo" };
+  const ct = buildPaper("carton", paperContext(sh, lines, { ...dd, firms: [{ ...dd.firms[0], dl_no: "89-COS-PB" }] }, true));
+  const labels = ct.blocks.filter((b) => b.t === "row").flatMap((b) => b.items);
+  assert.equal(labels.length, 14);                                                     // 1000 pcs, 72 per carton: 14 cartons
+  assert.equal(labels[0].label, "Carton 1 of 14"); assert.equal(labels[13].label, "Carton 14 of 14");
+  assert.ok(labels[0].lines.some((x) => x.includes("BRAND OWNER: OTC PHARMA, Baghdad, Iraq")) && labels[0].lines.some((x) => x.includes("Mfg. Lic. No. 89-COS-PB")));
+  assert.ok(labels[0].lines.some((x) => x.includes("QUANTITY: 72 pcs")) && labels[13].lines.some((x) => x.includes("QUANTITY: 64 pcs")));
+  assert.ok(labels[0].lines.includes("FOR SALE IN IRAQ ONLY"));
+  assert.equal(kindOfCountryDoc("Brand-owner carton text"), "carton");
+  console.log("carton text tests passed");
+}

@@ -154,7 +154,7 @@ export function auditShipment(c) {
   });
 
   // 3 · the papers against the shipment
-  const ctx = paperContext(s, lines, { firms: [firm].filter(Boolean), parties: [party, c.notify, c.brandOwner].filter(Boolean), agents: [c.transporter, c.agent].filter(Boolean), products: c.products || [] }, true, c.attachments || [], c.formulas || {});
+  const ctx = paperContext(s, lines, { firms: [firm].filter(Boolean), parties: [party, c.notify, c.brandOwner].filter(Boolean), agents: [c.transporter, c.agent].filter(Boolean), products: c.products || [], countries: [country].filter(Boolean) }, true, c.attachments || [], c.formulas || {});
   const papers = Object.fromEntries(KINDS.map(([k]) => [k, buildPaper(k, ctx)]));
   group("Papers", "all papers show the same numbers as the shipment", () => { crossCheckPapers(papers, s, lines, party, firm).forEach((i) => add(i.level, i.area, i.text)); });
   const stale = []; KINDS.forEach(([k, label]) => { const sv = saved[k]; if (sv && papers[k] && sv.input_hash !== fingerprint(papers[k])) stale.push(`${label} v${sv.version}`); });
@@ -170,6 +170,7 @@ export function auditShipment(c) {
     if (!au.valid_to) add("warn", "Letter of authority", `${party.name}: the letter's validity is not entered.`);
     else if (s.invoice_date && (au.valid_to < s.invoice_date.slice(0, 7) || (au.valid_from && au.valid_from > s.invoice_date.slice(0, 7)))) add("error", "Letter of authority", `The letter's validity (${au.valid_from || "…"} to ${au.valid_to}) does not cover the invoice date (${s.invoice_date}). Sign a new letter.`);
   }
+  if (needs(/carton text|carton marking/i) && !c.brandOwner) add("warn", "Carton text", `${country.country} wants the brand owner's text on the cartons, but no brand owner is chosen on the shipment. The carton text will show Velite only.`);
   if (needs(/ingredient/i)) {
     lines.forEach((l, i) => {
       const prod = (c.products || []).find((p) => p.id === l.product_id); const n = `Line ${i + 1} ${l.name}`;
