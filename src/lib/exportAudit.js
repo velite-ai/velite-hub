@@ -68,7 +68,7 @@ function proformaAudit(c, items, passed, add, group, tot) {
       if (best && l.rate !== "" && l.rate != null && Math.abs(Number(l.rate) - Number(best.rate)) > 0.0049 && Number(l.rate) > 0.01) add("warn", "Products", `${n}: rate ${l.rate} differs from the price list (${best.rate}).`);
     });
   });
-  const ctx = paperContext(s, lines, { firms: [firm].filter(Boolean), parties: [party, c.notify, c.brandOwner].filter(Boolean), agents: [] }, true);
+  const ctx = paperContext(s, lines, { firms: [firm].filter(Boolean), parties: [party, c.notify, c.brandOwner].filter(Boolean), agents: [] }, true, c.attachments || []);
   const pi = buildPaper("proforma", ctx);
   group("Papers", "the proforma shows the same numbers as the shipment", () => {
     const t = text(pi); const miss = (what, str) => { if (str && !t.includes(String(str))) add("error", "Papers", `The proforma does not show ${what} (${str}).`); };
@@ -154,7 +154,7 @@ export function auditShipment(c) {
   });
 
   // 3 · the papers against the shipment
-  const ctx = paperContext(s, lines, { firms: [firm].filter(Boolean), parties: [party, c.notify, c.brandOwner].filter(Boolean), agents: [c.transporter, c.agent].filter(Boolean) }, true);
+  const ctx = paperContext(s, lines, { firms: [firm].filter(Boolean), parties: [party, c.notify, c.brandOwner].filter(Boolean), agents: [c.transporter, c.agent].filter(Boolean) }, true, c.attachments || []);
   const papers = Object.fromEntries(KINDS.map(([k]) => [k, buildPaper(k, ctx)]));
   group("Papers", "all papers show the same numbers as the shipment", () => { crossCheckPapers(papers, s, lines, party, firm).forEach((i) => add(i.level, i.area, i.text)); });
   const stale = []; KINDS.forEach(([k, label]) => { const sv = saved[k]; if (sv && papers[k] && sv.input_hash !== fingerprint(papers[k])) stale.push(`${label} v${sv.version}`); });

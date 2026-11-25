@@ -43,7 +43,7 @@ export default function Papers({ ship, lines, d, batchState, onClose }) {
   const loadSaved = async () => { const { data } = await supabase.from("exp_documents").select("id,kind,title,version,input_hash,created_by_name,created_at,content").eq("shipment_id", ship.id).order("created_at", { ascending: false }); setSaved(data || []); };
   const loadAtts = async () => { const { data } = await supabase.from("exp_attachments").select("*").eq("shipment_id", ship.id); setAtts(data || []); };
   useEffect(() => { loadSaved(); loadAtts(); }, [ship.id]); // eslint-disable-line
-  const ctx = useMemo(() => paperContext(ship, lines, d, plain), [ship, lines, d, plain]);
+  const ctx = useMemo(() => paperContext(ship, lines, d, plain, atts), [ship, lines, d, plain, atts]);
   const papers = useMemo(() => Object.fromEntries(KINDS.map(([k]) => [k, buildPaper(k, ctx)])), [ctx]);
   const paper = view ? view.content : papers[kind];
   const latestMap = useMemo(() => { const m = {}; saved.forEach((x) => { if (!m[x.kind] || x.version > m[x.kind].version) m[x.kind] = x; }); return m; }, [saved]);
