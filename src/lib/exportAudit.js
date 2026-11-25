@@ -21,6 +21,7 @@ export const ATTACH = [
   { k: "loa", label: "Letter of authority", match: /authority/i, facts: [] },
   { k: "ingredients", label: "Ingredient list", match: /ingredient/i, facts: [] },
   { k: "carton_text", label: "Brand-owner carton text", match: /carton text/i, facts: [] },
+  { k: "signed_proforma", label: "Signed and stamped proforma (sent to the party)", match: /^$/, facts: [] },
   { k: "other", label: "Other document", match: /^$/, facts: ["ref_no", "doc_date"] },
 ];
 export const attachKind = (k) => ATTACH.find((a) => a.k === k) || ATTACH[ATTACH.length - 1];
@@ -77,6 +78,7 @@ function proformaAudit(c, items, passed, add, group, tot) {
   });
   if (c.saved.proforma && c.saved.proforma.input_hash !== fingerprint(pi)) add("warn", "Papers", `The saved copy of Proforma invoice v${c.saved.proforma.version} no longer matches the order (it was changed afterwards). Print again so the saved copy is current.`);
   if (!(c.attachments || []).some((a) => a.kind === "po")) add("warn", "Order", "No copy of the buyer's order is saved with this shipment. Attach it under Outside documents (a proforma is made against the order).");
+  if (c.saved.proforma && !(c.attachments || []).some((a) => a.kind === "signed_proforma")) add("info", "Order", "The signed and stamped proforma that goes to the party is not saved yet (Papers → Proforma → After printing).");
   add("info", "Next step", "When the buyer confirms and the goods are ready, change the status to “Preparing dispatch” to add batches, cartons, the invoice number and the other papers.");
   return { items, passed, errors: items.filter((i) => i.level === "error").length, warnings: items.filter((i) => i.level === "warn").length, papers: { proforma: pi } };
 }

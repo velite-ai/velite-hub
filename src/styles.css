@@ -992,3 +992,4 @@ button.qc-row{cursor:pointer;} button.qc-row:hover{background:#f9fafb;}
   #exp-print{display:block !important;position:absolute;left:0;top:0;width:100%;background:#fff;}
   #exp-print .ep-page{box-shadow:none;width:auto;padding:0;min-height:0;margin:0;}
 }
+.ex-mailbody{white-space:pre-wrap;font:14px/1.5 Arial,Helvetica,sans-serif;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-top:8px;}

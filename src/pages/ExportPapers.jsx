@@ -7,6 +7,7 @@ import { KINDS, buildPaper, paperContext, kindOfCountryDoc, fingerprint } from "
 import { paperToDocx } from "../lib/exportDocx";
 import { auditShipment } from "../lib/exportAudit";
 import { AuditPanel, Records, OrderPrompt } from "./ExportAudit";
+import { SendProforma } from "./ExportMail";
 import { todayISO } from "../lib/qc";
 
 // Papers of one shipment: preview, print, Word, and an automatic saved copy every time a paper is printed or downloaded.
@@ -107,7 +108,10 @@ export default function Papers({ ship, lines, d, batchState, onClose }) {
         {KINDS.filter(([k]) => ship.status !== "proforma" || k === "proforma").map(([k, l]) => <button key={k} className={!view && kind === k ? "on" : ""} onClick={() => { setView(null); setKind(k); }}>{l}{latest(k) ? " ✓" : ""}</button>)}
       </div>
       <div className="qc-filters" style={{ margin: "8px 0" }}>
-        <label style={{ flex: 1, fontSize: 14 }}><input type="checkbox" checked={!plain} onChange={(e) => togglePlain(!e.target.checked)} /> I print on pre-printed letterhead (leave the top blank, do not print the firm header)</label>
+        <div style={{ flex: 1, fontSize: 14 }} role="radiogroup" aria-label="Paper">
+          <label style={{ marginRight: 16 }}><input type="radio" name="ex-paper" checked={!plain} onChange={() => togglePlain(false)} /> <b>On letterhead</b>: the top is left blank, no firm details printed</label>
+          <label><input type="radio" name="ex-paper" checked={plain} onChange={() => togglePlain(true)} /> <b>On plain paper</b>: firm name and details are printed at the top</label>
+        </div>
         {view && <button className="btn-ghost sm" onClick={() => setView(null)}>Back to the current paper</button>}
         <button className="btn-ghost" onClick={() => word(paper)} disabled={blocked && !view}>⬇ Word</button>
         <button className="btn-primary" onClick={() => print(paper)} disabled={blocked && !view}>🖨 Print / save as PDF</button>
@@ -115,6 +119,7 @@ export default function Papers({ ship, lines, d, batchState, onClose }) {
       {!view && kind === "proforma" && !atts.some((a) => a.kind === "po") && <div className="rg-note amber">No copy of the buyer's order is saved with this shipment. You will be asked for it when you print or download the proforma, or add it under Outside documents below.</div>}
       {view && <div className="rg-note amber">Showing the saved copy: {view.title} v{view.version}, {stamp(view.created_at)} by {view.created_by_name}. Printing it does not make a new version.</div>}
       <div className="ep-scroll"><Paper paper={paper} /></div>
+      {!view && kind === "proforma" && <SendProforma ship={ship} party={ctx.party} firm={ctx.firm} lines={lines} atts={atts} reloadAtts={loadAtts} />}
       <div className="small-muted" style={{ margin: "6px 0" }}>The Hub prints the signatory’s name only. Sign and stamp the printout by hand. Every print or Word download saves a copy; a new version is added only when the paper has changed.</div>
 
       <div className="ipanel"><div className="ipanel-head"><div><h3>Saved copies</h3></div></div>
