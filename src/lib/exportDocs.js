@@ -35,14 +35,18 @@ const up = (s) => String(s || "").toUpperCase();
 const MODE = { road: "BY ROAD", air: "BY AIR", sea: "BY SEA", "road+sea": "BY ROAD, THEN BY SEA", "air+road": "BY AIR, THEN BY ROAD" };
 
 export const KINDS = [
-  ["proforma", "Proforma invoice"], ["invoice", "Export invoice"], ["packing", "Packing list"], ["coo", "Certificate of origin"], ["declaration", "Declaration"],
+  ["proforma", "Proforma invoice"], ["invoice", "Export invoice"], ["packing", "Packing list"], ["coo", "Certificate of origin"], ["declaration", "Declaration"], ["nondg", "Non-DG declaration"],
 ];
+
+// the edition of the IATA Dangerous Goods Regulations named in the declaration, as in the firm's own format
+export const DGR_EDITION = "65th";
 
 // Which paper does a line of a country's document list stand for? Unknown ones are papers to attach.
 export function kindOfCountryDoc(name) {
   const s = String(name).toLowerCase();
   if (/e-invoice|e-way/.test(s)) return null;
   if (/proforma/.test(s)) return "proforma";
+  if (/non-?dg|dangerous/.test(s)) return "nondg";
   if (/packing/.test(s)) return "packing";
   if (/origin/.test(s)) return "coo";
   if (/narcotics|scomet|declaration/.test(s) && !/letter of authority/.test(s)) return "declaration";
@@ -121,6 +125,16 @@ export function buildPaper(kind, c) {
     { t: "table", head: ["S. No.", "Particulars", "HSN code", "Case no."], widths: [8, 52, 18, 22], align: "clcc",
       rows: lines.map((l, i) => { const r = pk.rows.filter((x) => x.line === l.__i && !x.unknown); const a = r.length ? r[0].from : "", b = r.length ? r[r.length - 1].to : ""; return [String(i + 1), l.name, l.hsn || "", a === "" ? "" : `CASE# ${a === b ? a : `${a}-${b}`}`]; }) },
     sign(f)] };
+  if (kind === "nondg") return { kind, title: "Non-DG declaration", file: `Non-DG declaration ${s.invoice_no || ""}`, blocks: [
+    head(f, c.plain), { t: "para", text: `Date: ${dmy(s.invoice_date, ".")}`, bold: true }, { t: "title", text: "NON DANGEROUS GOODS DECLARATION" },
+    { t: "para", text: `This is to certify that the articles / substances of this shipment are properly described by name, that they are not listed in the current edition ${DGR_EDITION} of IATA Dangerous Goods Regulations (DGR), Alphabetical List of Dangerous Goods nor do they correspond to any of the hazard classes appearing in the DGR, section 3, classifications of Dangerous Goods and that they are known to be not dangerous i.e. not restricted.` },
+    { t: "para", text: "We again agree that this shipment is non-hazardous, non-toxic, non-corrosive, non-flammable, non-reactive." },
+    { t: "para", text: "Furthermore the shipper confirms that the goods are in proper and good condition for transportation on passenger carrying Aircraft (DGR, 8.1.23) Of International Air Transport Association (IATA)." },
+    { t: "table", head: ["Marks and number of packages", "Proper description of goods (trade names not permitted). Specify each article separately", "Net quantity per package"], widths: [22, 56, 22], align: "llc",
+      rows: lines.map((l) => { const r = pk.rows.filter((x) => x.line === l.__i && !x.unknown); const a = r.length ? r[0].from : "", b = r.length ? r[r.length - 1].to : ""; return [a === "" ? "BOXES" : `BOXES ${a === b ? a : `${a}-${b}`}`, `${l.hsn || ""} ${l.name}`.trim(), l.pcs_per_carton ? String(l.pcs_per_carton) : ""]; }) },
+    { t: "para", text: `Name and address of shipper:\n${up(f.name)}, ${up(f.address || "")}` },
+    { t: "para", text: `Name and address of consignee:\n${to ? `BUYER: ${partyLines(p).join(", ")}\nCONSIGNEE: ${partyLines(to).join(", ")}` : partyLines(p).join(", ")}` },
+    { t: "sign", forFirm: "Authorized Signatory (Name / Designation / Sign)", name: f.signatory_name || "", title: [f.signatory_title, f.phone && `Mobile: ${f.phone}`, `Dt. ${dmy(s.invoice_date, ".")}`].filter(Boolean).join("   ") }] };
   return null;
 }
 

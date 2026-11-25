@@ -32,4 +32,9 @@ assert.equal(kindOfCountryDoc("Declaration (not SCOMET / NDPS, no CDSCO NOC)"), 
 assert.equal(kindOfCountryDoc("Certificate of origin"), "coo");
 assert.equal(kindOfCountryDoc("MSDS"), null);
 assert.equal(fingerprint(inv), fingerprint(buildPaper("invoice", c)));
+// Non-DG declaration (wording of the firm's own format, as used for air shipments)
+const ndg = buildPaper("nondg", c);
+assert.ok(text(ndg).includes("NON DANGEROUS GOODS DECLARATION") && text(ndg).includes("65th of IATA Dangerous Goods Regulations"));
+assert.ok(text(ndg).includes("33049910 AZELUX AZ SERUM 30ML") && text(ndg).includes("BOXES 1-14") && text(ndg).includes("Name and address of shipper") && text(ndg).includes("Sangeeta Verma"));
+assert.equal(kindOfCountryDoc("Non-DG certificate"), "nondg");
 console.log("export document tests passed");

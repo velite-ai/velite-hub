@@ -45,6 +45,17 @@ r = run({ country: { ...country, docs: ["COA"] } }); assert.ok(has(r, "warn", "N
 const inv = buildPaper("invoice", paperContext(s, lines, { firms: [firm], parties: [party], agents: [] }, false));
 r = run({ saved: { invoice: { version: 1, input_hash: fingerprint(inv) } } }); assert.ok(!has(r, "warn", "no longer matches"));
 r = run({ saved: { invoice: { version: 1, input_hash: "old" } } }); assert.ok(has(r, "warn", "no longer matches"));
+// Free sale certificate: a government paper, so the audit checks validity and that it lists every product
+const fscC = { ...country, docs: ["Free sale certificate"] };
+r = run({ country: fscC, attachments: [{ kind: "fsc", ref_no: "1646", doc_date: "2023-09-22", facts: { valid_until: "2024-09-11", products: "NutroSense Radiant Glow Serum\nAzelux AZ Serum 30ML" } }] });
+assert.ok(has(r, "error", "expired on 2024-09-11"));
+r = run({ country: fscC, attachments: [{ kind: "fsc", doc_date: "2026-09-01", facts: { valid_until: "2028-09-11", products: "Olneu Recovery Cream" } }] });
+assert.ok(has(r, "error", "does not list AZELUX AZ SERUM 30ML"));
+r = run({ country: fscC, attachments: [{ kind: "fsc", doc_date: "2026-09-01", facts: { valid_until: "2028-09-11", products: "Azelux AZ Serum 30ml\nOlneu Recovery Cream" } }] });
+assert.equal(r.items.filter((i) => i.area === "Outside documents" && i.level !== "info").length, 0);
+r = run({ country: fscC, attachments: [{ kind: "fsc", facts: { valid_until: "2026-12-31", products: "Azelux AZ Serum 30ml" } }] });
+assert.ok(has(r, "warn", "valid only up to"));
+r = run({ country: { ...country, docs: ["Non-DG certificate"] } }); assert.ok(has(r, "warn", "Not yet prepared or attached: Non-DG certificate"));
 assert.ok(ATTACH.length > 10);
 console.log("export audit tests passed");
 

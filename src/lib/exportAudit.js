@@ -1,11 +1,12 @@
 // Export audit: compares the shipment, the papers made from it and the outside documents attached to it,
 // and checks them against the master data and the usual rules. Pure functions; every finding says what to fix.
 import { packLines, totals, preflight, monthsBetween, MIN_SHELF_MONTHS } from "./shipment.js";
+import { normName } from "./export.js";
 import { KINDS, buildPaper, paperContext, kindOfCountryDoc, fingerprint, money } from "./exportDocs.js";
 
 // Outside documents that can be attached to a shipment, and the facts worth typing from each (the audit compares them).
 export const FACTS = {
-  ref_no: "Number", doc_date: "Date", invoice_no: "Invoice number on it", value_inr: "Invoice / FOB value in rupees", packages: "Number of packages", iec: "IEC on it", gstin: "GSTIN on it", batch_no: "Batch number", mfg: "Mfg (month)", exp: "Exp (month)",
+  ref_no: "Number", doc_date: "Date", invoice_no: "Invoice number on it", value_inr: "Invoice / FOB value in rupees", packages: "Number of packages", iec: "IEC on it", gstin: "GSTIN on it", batch_no: "Batch number", mfg: "Mfg (month)", exp: "Exp (month)", valid_until: "Licence valid up to", products: "Products listed on it (one per line)",
 };
 export const ATTACH = [
   { k: "shipping_bill", label: "Shipping bill", match: /shipping bill/i, facts: ["ref_no", "doc_date", "invoice_no", "value_inr", "packages", "iec", "gstin"] },
@@ -16,7 +17,7 @@ export const ATTACH = [
   { k: "coa", label: "COA", match: /\bcoa\b|analysis/i, facts: ["batch_no", "mfg", "exp"] },
   { k: "msds", label: "MSDS", match: /msds/i, facts: [] },
   { k: "non_dg", label: "Non-DG certificate", match: /non-?dg/i, facts: ["ref_no", "doc_date"] },
-  { k: "fsc", label: "Free sale certificate", match: /free sale/i, facts: [] },
+  { k: "fsc", label: "Free sale certificate", match: /free sale/i, facts: ["ref_no", "doc_date", "valid_until", "products"] },
   { k: "loa", label: "Letter of authority", match: /authority/i, facts: [] },
   { k: "ingredients", label: "Ingredient list", match: /ingredient/i, facts: [] },
   { k: "carton_text", label: "Brand-owner carton text", match: /carton text/i, facts: [] },
@@ -184,6 +185,15 @@ export function auditShipment(c) {
     if (a.kind === "eway" && (a.ref_no || f.ref_no) && s.eway_bill && !same(a.ref_no || f.ref_no, s.eway_bill)) w(`number differs from the e-way bill number on the shipment (${s.eway_bill}).`);
     if (a.kind === "truck_receipt" && (a.ref_no || f.ref_no) && s.gr_no && !same(a.ref_no || f.ref_no, s.gr_no)) w(`number differs from the G.R. / docket number on the shipment (${s.gr_no}).`);
     if (a.kind === "po" && (a.ref_no || f.ref_no) && s.po_no && !same(a.ref_no || f.ref_no, s.po_no)) w(`number differs from the PO number on the shipment (${s.po_no}).`);
+    if (a.kind === "fsc") {
+      if (f.valid_until && s.invoice_date) { if (f.valid_until < s.invoice_date) e(`the licence it is based on expired on ${f.valid_until}, before this invoice (${s.invoice_date}). Get a current free sale certificate.`); else if (monthsBetween(mon(s.invoice_date), mon(f.valid_until)) < 3) w(`the licence it is based on is valid only up to ${f.valid_until}. Apply for the renewed certificate soon.`); }
+      else if (!f.valid_until) w("the licence validity date is not recorded, so it could not be checked.");
+      if (date && s.invoice_date && date > s.invoice_date) w(`is dated ${date}, after the invoice (${s.invoice_date}).`);
+      if (f.products && String(f.products).trim()) {
+        const listed = String(f.products).split(/\n+/).map((x) => normName(x)).filter(Boolean);
+        lines.forEach((l) => { const n = normName(l.name); if (n && !listed.some((x) => x === n || x.includes(n) || n.includes(x))) e(`does not list ${l.name}. A free sale certificate must cover every product exported.`); });
+      } else w("the products it lists are not recorded, so it could not be compared with the shipment.");
+    }
     if (a.kind === "coa" && f.batch_no) {
       const l = lines.find((x) => same(x.batch_no, f.batch_no));
       if (!l) w(`is for batch ${f.batch_no}, which is not in this shipment.`);
