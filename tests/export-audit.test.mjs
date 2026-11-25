@@ -69,6 +69,8 @@ r = run({ country: myC, party: myParty, products: [{ id: "pr", hsn: "33049910" }
 r = run({ country: myC, party: myParty, products: myProd, formulas: { rp: [{ label: "Water", pct: 80 }, { label: "Glycerin", pct: 5 }] } }); assert.ok(has(r, "warn", "add up to 85"));
 r = run({ country: myC, party: myParty, products: myProd, formulas: { rp: [{ label: "Water", pct: 80 }, { label: "Glycerin" }] } }); assert.ok(has(r, "warn", "no percentage for 1 of 2"));
 r = run({ country: myC, party: myParty, products: myProd, formulas: { rp: [] } }); assert.ok(has(r, "error", "has no formula yet"));
+r = run({ country: { ...country, docs: ["Brand-owner carton text"] } }); assert.ok(has(r, "warn", "no brand owner is chosen"));
+r = run({ country: { ...country, docs: ["Brand-owner carton text"] }, brandOwner: { name: "OTC" } }); assert.ok(!has(r, "warn", "no brand owner is chosen"));
 assert.ok(ATTACH.length > 10);
 console.log("export audit tests passed");
 
