@@ -35,17 +35,22 @@ const up = (s) => String(s || "").toUpperCase();
 const MODE = { road: "BY ROAD", air: "BY AIR", sea: "BY SEA", "road+sea": "BY ROAD, THEN BY SEA", "air+road": "BY AIR, THEN BY ROAD" };
 
 export const KINDS = [
-  ["proforma", "Proforma invoice"], ["invoice", "Export invoice"], ["packing", "Packing list"], ["coo", "Certificate of origin"], ["declaration", "Declaration"],
+  ["proforma", "Proforma invoice"], ["invoice", "Export invoice"], ["packing", "Packing list"], ["coo", "Certificate of origin"], ["declaration", "Declaration"], ["nondg", "Non-DG declaration"], ["narcotics", "Non-narcotics letter"],
 ];
+
+// the edition of the IATA Dangerous Goods Regulations named in the declaration, as in the firm's own format
+export const DGR_EDITION = "65th";
 
 // Which paper does a line of a country's document list stand for? Unknown ones are papers to attach.
 export function kindOfCountryDoc(name) {
   const s = String(name).toLowerCase();
   if (/e-invoice|e-way/.test(s)) return null;
   if (/proforma/.test(s)) return "proforma";
+  if (/non-?dg|dangerous/.test(s)) return "nondg";
+  if (/narcotic/.test(s)) return "narcotics";
   if (/packing/.test(s)) return "packing";
   if (/origin/.test(s)) return "coo";
-  if (/narcotics|scomet|declaration/.test(s) && !/letter of authority/.test(s)) return "declaration";
+  if (/scomet|declaration/.test(s) && !/letter of authority/.test(s)) return "declaration";
   if (/invoice/.test(s)) return "invoice";
   return null;
 }
@@ -121,13 +126,34 @@ export function buildPaper(kind, c) {
     { t: "table", head: ["S. No.", "Particulars", "HSN code", "Case no."], widths: [8, 52, 18, 22], align: "clcc",
       rows: lines.map((l, i) => { const r = pk.rows.filter((x) => x.line === l.__i && !x.unknown); const a = r.length ? r[0].from : "", b = r.length ? r[r.length - 1].to : ""; return [String(i + 1), l.name, l.hsn || "", a === "" ? "" : `CASE# ${a === b ? a : `${a}-${b}`}`]; }) },
     sign(f)] };
+  if (kind === "nondg") return { kind, title: "Non-DG declaration", file: `Non-DG declaration ${s.invoice_no || ""}`, blocks: [
+    head(f, c.plain), { t: "para", text: `Date: ${dmy(s.invoice_date, ".")}`, bold: true }, { t: "title", text: "NON DANGEROUS GOODS DECLARATION" },
+    { t: "para", text: `This is to certify that the articles / substances of this shipment are properly described by name, that they are not listed in the current edition ${DGR_EDITION} of IATA Dangerous Goods Regulations (DGR), Alphabetical List of Dangerous Goods nor do they correspond to any of the hazard classes appearing in the DGR, section 3, classifications of Dangerous Goods and that they are known to be not dangerous i.e. not restricted.` },
+    { t: "para", text: "We again agree that this shipment is non-hazardous, non-toxic, non-corrosive, non-flammable, non-reactive." },
+    { t: "para", text: "Furthermore the shipper confirms that the goods are in proper and good condition for transportation on passenger carrying Aircraft (DGR, 8.1.23) Of International Air Transport Association (IATA)." },
+    { t: "table", head: ["Marks and number of packages", "Proper description of goods (trade names not permitted). Specify each article separately", "Net quantity per package"], widths: [22, 56, 22], align: "llc",
+      rows: lines.map((l) => { const r = pk.rows.filter((x) => x.line === l.__i && !x.unknown); const a = r.length ? r[0].from : "", b = r.length ? r[r.length - 1].to : ""; return [a === "" ? "BOXES" : `BOXES ${a === b ? a : `${a}-${b}`}`, `${l.hsn || ""} ${l.name}`.trim(), l.pcs_per_carton ? String(l.pcs_per_carton) : ""]; }) },
+    { t: "para", text: `Name and address of shipper:\n${up(f.name)}, ${up(f.address || "")}` },
+    { t: "para", text: `Name and address of consignee:\n${to ? `BUYER: ${partyLines(p).join(", ")}\nCONSIGNEE: ${partyLines(to).join(", ")}` : partyLines(p).join(", ")}` },
+    { t: "sign", forFirm: "Authorized Signatory (Name / Designation / Sign)", name: f.signatory_name || "", title: [f.signatory_title, f.phone && `Mobile: ${f.phone}`, `Dt. ${dmy(s.invoice_date, ".")}`].filter(Boolean).join("   ") }] };
+  if (kind === "narcotics") {
+    const sb = (c.attachments || []).find((a) => a.kind === "shipping_bill"); const air = /air/.test(s.transport_mode || "");
+    const where = air ? ["IGIA, Cargo Complex", "New Delhi-3"] : [s.entry_point || "the Customs Office"];
+    return { kind, title: "Non-narcotics letter", file: `Non-narcotics letter ${s.invoice_no || ""}`, blocks: [
+      head(f, c.plain), { t: "para", text: ["To,", "The Deputy Commissioner of Customs", ...where].join("\n") }, { t: "para", text: `Dated: ${dmy(s.invoice_date, ".")}`, align: "right" },
+      { t: "para", text: "Sub: Regarding Non-Narcotics Drugs and Declaration of (Not Covered) SCOMET", bold: true }, { t: "para", text: "Dear Sir," },
+      { t: "para", text: "With reference to above mentioned subject kindly note that below mention items are not narcotics drugs and no narcotics substance have been used in the product. Item is not covered under SCOMET list." },
+      { t: "table", head: ["S.No.", "Product", "HSN", "Quantity (pcs)"], widths: [8, 62, 15, 15], align: "clcr", rows: lines.map((l, i) => [String(i + 1), l.name, l.hsn || "", String(l.qty)]) },
+      { t: "para", text: `S/B No.: ${sb ? sb.ref_no || sb.facts?.ref_no || "" : "____________"}        Dt.: ${sb && (sb.doc_date || sb.facts?.doc_date) ? dmy(sb.doc_date || sb.facts.doc_date, ".") : "____________"}\nInv. No. ${s.invoice_no || ""}   DATED ${dmy(s.invoice_date, ".")}` },
+      { t: "para", text: "Thanking You\nYours truly" }, sign(f)] };
+  }
   return null;
 }
 
 // everything needed to build the papers of one shipment
-export function paperContext(s, lines, d, plain) {
+export function paperContext(s, lines, d, plain, attachments = []) {
   return { s, lines: lines.map((l, i) => ({ ...l, __i: i })), firm: d.firms.find((f) => f.id === s.firm_id), party: d.parties.find((x) => x.id === s.party_id), notify: d.parties.find((x) => x.id === s.notify_id) || null,
-    brandOwner: d.parties.find((x) => x.id === s.brand_owner_id) || null, transporter: d.agents.find((x) => x.id === s.transporter_id) || null, agent: d.agents.find((x) => x.id === s.agent_id) || null, plain };
+    brandOwner: d.parties.find((x) => x.id === s.brand_owner_id) || null, transporter: d.agents.find((x) => x.id === s.transporter_id) || null, agent: d.agents.find((x) => x.id === s.agent_id) || null, plain, attachments };
 }
 
 // a short fingerprint of a paper's content (the letterhead choice is ignored), to know whether a saved copy is still current

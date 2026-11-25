@@ -83,7 +83,11 @@ function RecordForm({ ship, row, onClose, onSaved }) {
     if (row.file_path) await supabase.storage.from("export").remove([row.file_path]);
     const r = await run(supabase.from("exp_attachments").delete().eq("id", row.id), "Removed"); if (r.ok) { onSaved(); onClose(); }
   };
-  const input = (k) => (k === "mfg" || k === "exp"
+  const input = (k) => (k === "products"
+    ? <textarea className="form-inp" rows={5} value={facts[k] ?? ""} onChange={(e) => setFacts((x) => ({ ...x, [k]: e.target.value }))} placeholder="Copy the product names from the certificate" />
+    : k === "valid_until"
+    ? <input className="form-inp" type="date" value={facts[k] ?? ""} onChange={(e) => setFacts((x) => ({ ...x, [k]: e.target.value }))} />
+    : k === "mfg" || k === "exp"
     ? <input className="form-inp" type="month" value={String(facts[k] || "").slice(0, 7)} onChange={(e) => setFacts((x) => ({ ...x, [k]: e.target.value }))} />
     : <input className="form-inp" value={facts[k] ?? ""} onChange={(e) => setFacts((x) => ({ ...x, [k]: e.target.value }))} inputMode={k === "value_inr" || k === "packages" ? "decimal" : undefined} />);
   return (

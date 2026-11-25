@@ -27,9 +27,22 @@ for (const p of [inv, pl, dec, coo, pi]) assert.ok(text(p).includes("Sangeeta Ve
 assert.equal(buildPaper("invoice", paperContext(s, lines, d, false)).blocks[0].t, "gap");
 assert.equal(kindOfCountryDoc("Export invoice (under LUT)"), "invoice");
 assert.equal(kindOfCountryDoc("E-invoice and e-way bill"), null);
-assert.equal(kindOfCountryDoc("Narcotics / SCOMET declaration"), "declaration");
+assert.equal(kindOfCountryDoc("Narcotics / SCOMET declaration"), "narcotics");
 assert.equal(kindOfCountryDoc("Declaration (not SCOMET / NDPS, no CDSCO NOC)"), "declaration");
 assert.equal(kindOfCountryDoc("Certificate of origin"), "coo");
 assert.equal(kindOfCountryDoc("MSDS"), null);
 assert.equal(fingerprint(inv), fingerprint(buildPaper("invoice", c)));
+// Non-DG declaration (wording of the firm's own format, as used for air shipments)
+const ndg = buildPaper("nondg", c);
+assert.ok(text(ndg).includes("NON DANGEROUS GOODS DECLARATION") && text(ndg).includes("65th of IATA Dangerous Goods Regulations"));
+assert.ok(text(ndg).includes("33049910 AZELUX AZ SERUM 30ML") && text(ndg).includes("BOXES 1-14") && text(ndg).includes("Name and address of shipper") && text(ndg).includes("Sangeeta Verma"));
+assert.equal(kindOfCountryDoc("Non-DG certificate"), "nondg");
+// Non-narcotics letter to Customs (Iraq, by air via Delhi): shipping bill number and date are filled in once the shipping bill is attached
+const air = { ...s, transport_mode: "air" };
+const nl = buildPaper("narcotics", paperContext(air, lines, d, true));
+assert.ok(text(nl).includes("Deputy Commissioner of Customs") && text(nl).includes("IGIA, Cargo Complex") && text(nl).includes("Non-Narcotics Drugs") && text(nl).includes("Inv. No. EX65"));
+assert.ok(text(nl).includes("S/B No.: ____________"));
+const nl2 = buildPaper("narcotics", paperContext(air, lines, d, true, [{ kind: "shipping_bill", ref_no: "1455799", doc_date: "2026-10-26", facts: {} }]));
+assert.ok(text(nl2).includes("S/B No.: 1455799") && text(nl2).includes("Dt.: 26.10.2026"));
+assert.ok(text(nl2).includes("Sangeeta Verma"));
 console.log("export document tests passed");
