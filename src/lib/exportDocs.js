@@ -38,6 +38,14 @@ export const KINDS = [
   ["proforma", "Proforma invoice"], ["invoice", "Export invoice"], ["packing", "Packing list"], ["coo", "Certificate of origin"], ["declaration", "Declaration"], ["nondg", "Non-DG declaration"], ["narcotics", "Non-narcotics letter"], ["loa", "Letter of authority"], ["ingredients", "Ingredient list"], ["carton", "Carton text"],
 ];
 
+// Customs office a letter is addressed to, from how the goods leave India: Mundra port (sea), IGI airport New Delhi (air), else the entry point.
+export function customsOffice(s) {
+  const where = `${s.entry_point || ""} ${s.port_loading || ""}`;
+  if (/mundra/i.test(where)) return { title: "The Assistant Commissioner of Customs", lines: ["Mundra Port", "Gujarat"] };
+  if (/air|igi|delhi/i.test(`${s.transport_mode || ""} ${where}`)) return { title: "The Deputy Commissioner of Customs", lines: ["IGIA, Cargo Complex", "New Delhi-3"] };
+  return { title: "The Deputy Commissioner of Customs", lines: [s.entry_point || "the Customs Office"] };
+}
+
 // the edition of the IATA Dangerous Goods Regulations named in the declaration, as in the firm's own format
 export const DGR_EDITION = "65th";
 
@@ -140,10 +148,11 @@ export function buildPaper(kind, c) {
     { t: "para", text: `Name and address of consignee:\n${to ? `BUYER: ${partyLines(p).join(", ")}\nCONSIGNEE: ${partyLines(to).join(", ")}` : partyLines(p).join(", ")}` },
     { t: "sign", forFirm: "Authorized Signatory (Name / Designation / Sign)", name: f.signatory_name || "", title: [f.signatory_title, f.phone && `Mobile: ${f.phone}`, `Dt. ${dmy(s.invoice_date, ".")}`].filter(Boolean).join("   ") }] };
   if (kind === "narcotics") {
-    const sb = (c.attachments || []).find((a) => a.kind === "shipping_bill"); const air = /air/.test(s.transport_mode || "");
-    const where = air ? ["IGIA, Cargo Complex", "New Delhi-3"] : [s.entry_point || "the Customs Office"];
+    const sb = (c.attachments || []).find((a) => a.kind === "shipping_bill");
+    const office = customsOffice(s);
+    const where = office.lines;
     return { kind, title: "Non-narcotics letter", file: `Non-narcotics letter ${s.invoice_no || ""}`, blocks: [
-      head(f, c.plain), { t: "para", text: ["To,", "The Deputy Commissioner of Customs", ...where].join("\n") }, { t: "para", text: `Dated: ${dmy(s.invoice_date, ".")}`, align: "right" },
+      head(f, c.plain), { t: "para", text: ["To,", office.title, ...where].join("\n") }, { t: "para", text: `Dated: ${dmy(s.invoice_date, ".")}`, align: "right" },
       { t: "para", text: "Sub: Regarding Non-Narcotics Drugs and Declaration of (Not Covered) SCOMET", bold: true }, { t: "para", text: "Dear Sir," },
       { t: "para", text: "With reference to above mentioned subject kindly note that below mention items are not narcotics drugs and no narcotics substance have been used in the product. Item is not covered under SCOMET list." },
       { t: "table", head: ["S.No.", "Product", "HSN", "Quantity (pcs)"], widths: [8, 62, 15, 15], align: "clcr", rows: lines.map((l, i) => [String(i + 1), l.name, l.hsn || "", String(l.qty)]) },
