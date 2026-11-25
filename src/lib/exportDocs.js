@@ -164,12 +164,12 @@ export function buildPaper(kind, c) {
     const labels = [];
     pk.rows.filter((r) => !r.unknown).forEach((r) => { const l = lines[r.line]; for (let k = r.from; k <= r.to; k++) labels.push({ k, r, l }); });
     const item = ({ k, r, l }) => ({ label: `Carton ${k} of ${n}`, lines: [
-      bo && `BRAND OWNER: ${bo.name}${bo.address ? `, ${bo.address}` : ""}`,
+      bo && `MANUFACTURED FOR: ${bo.name}${bo.address ? `, ${bo.address}` : ""}`, bo && `DISTRIBUTED BY: ${bo.name}${bo.address ? `, ${bo.address}` : ""}`,
       `MANUFACTURED BY: ${up(f.name)}, ${f.address || ""}${f.dl_no ? `. Mfg. Lic. No. ${f.dl_no}` : ""}`,
       `PRODUCT: ${l.name}`, `BATCH: ${l.batch_no || ""}   MFG: ${mmyy(l.mfg)}   EXP: ${mmyy(l.exp)}`,
       `QUANTITY: ${r.perBox} pcs   NET: ${num(r.netPerBox)} kg   GROSS: ${num(r.grossPerBox)} kg`,
       `COUNTRY OF ORIGIN: INDIA   DESTINATION: ${up(s.country)}`, cr?.label_rule].filter(Boolean) });
-    const blocks = [head(f, c.plain), { t: "title", text: "CARTON TEXT", sub: `Invoice ${s.invoice_no || ""} · ${n} cartons` }, { t: "para", text: "Print and stick one label on each carton (draft wording: check it against the brand owner's and the importing country's requirements).", small: true }];
+    const blocks = [head(f, c.plain), { t: "title", text: "CARTON TEXT", sub: `Invoice ${s.invoice_no || ""} · ${n} cartons` }, { t: "para", text: "Print and stick one label on each carton (brand owner lines follow the importing side's annexure: "Manufactured For" and "Distributed by"; check them against its requirements).", small: true }];
     for (let i = 0; i < labels.length; i += 2) blocks.push({ t: "row", items: labels.slice(i, i + 2).map(item) });
     return { kind, title: "Carton text", file: `Carton text ${s.invoice_no || ""}`, blocks };
   }
