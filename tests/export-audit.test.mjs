@@ -47,3 +47,17 @@ r = run({ saved: { invoice: { version: 1, input_hash: fingerprint(inv) } } }); a
 r = run({ saved: { invoice: { version: 1, input_hash: "old" } } }); assert.ok(has(r, "warn", "no longer matches"));
 assert.ok(ATTACH.length > 10);
 console.log("export audit tests passed");
+
+// Stage 1: an order is received and only the proforma is made. No invoice number, batch, carton data or exchange rate needed.
+{
+  const po = { id: "s9", firm_id: "VH", country: "Nepal", party_id: "p", currency: "INR", status: "proforma", proforma_no: "PI_VH_25.11.2026", proforma_date: "2026-11-25", payment_terms: "100% advance", delivery_terms: "Ex-factory", final_destination: "Kathmandu" };
+  const pl = [{ name: "AZELUX AZ SERUM 30ML", product_id: "pr", hsn: "33049910", qty: 1000, rate: 145 }];
+  const r = auditShipment({ ...base, s: po, lines: pl });
+  assert.equal(r.errors, 0, JSON.stringify(r.items.filter((i) => i.level === "error")));
+  assert.ok(!r.items.some((i) => /batch|invoice number|carton|exchange/i.test(i.text) && i.level !== "info"));
+  assert.ok(r.items.some((i) => i.area === "Next step"));
+  const bad = auditShipment({ ...base, s: { ...po, proforma_no: "" }, lines: [{ ...pl[0], rate: "" }] });
+  assert.ok(bad.items.some((i) => i.text.includes("proforma number")) && bad.items.some((i) => i.text.includes("rate is missing")));
+  assert.deepEqual(Object.keys(r.papers), ["proforma"]);
+  console.log("proforma stage tests passed");
+}

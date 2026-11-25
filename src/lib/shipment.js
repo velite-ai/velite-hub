@@ -36,7 +36,37 @@ export const totals = (lines) => ({ qty: lines.reduce((s, l) => s + (Number(l.qt
 export const monthsBetween = (a, b) => { if (!a || !b) return null; const [ya, ma] = a.split("-").map(Number), [yb, mb] = b.split("-").map(Number); return (yb - ya) * 12 + (mb - ma); };
 
 // ctx: { firm, party, country (rule row), batchState (batch_id -> state), today (YYYY-MM-DD), allShipments (other shipments, for the invoice-number check) }
+// Stage 1: the order has come and a proforma invoice is to be sent. Only what the proforma prints is needed:
+// no invoice number, batches, cartons or exchange rate yet.
+export function preflightProforma(s, lines, ctx) {
+  const out = []; const err = (t) => out.push({ level: "error", text: t }); const warn = (t) => out.push({ level: "warn", text: t });
+  const f = ctx.firm, p = ctx.party;
+  if (!f) err("Choose the exporting firm."); else {
+    if (!f.iec) err(`${f.name}: IEC is not entered.`); if (!f.address) err(`${f.name}: address is not entered.`); if (!f.signatory_name) err(`${f.name}: signatory name is not entered.`);
+    if (!(f.bank || {}).account) err(`${f.name}: bank account number is not entered (it prints on the proforma).`);
+    if (!(f.bank || {}).ifsc) err(`${f.name}: bank IFSC is not entered (it prints on the proforma).`);
+  }
+  if (!p) err("Choose the buyer."); else {
+    if (!p.address) err(`${p.name}: address is not entered.`);
+    (ctx.country?.party_ids || []).forEach((k) => { if (!(p.ids || {})[k]) err(`${p.name}: ${k} is not entered (it prints on the proforma).`); });
+  }
+  if (!s.proforma_no) err("Type the proforma number."); else if ((ctx.others || []).some((o) => o.firm_id === s.firm_id && String(o.proforma_no || "").toLowerCase() === s.proforma_no.toLowerCase())) warn(`Proforma number ${s.proforma_no} is already used by another shipment of this firm.`);
+  if (!s.proforma_date) err("Enter the proforma date.");
+  if (!s.payment_terms) warn("Payment terms are empty."); if (!s.delivery_terms) warn("Delivery terms are empty.");
+  if (!s.final_destination && !s.entry_point) warn("Route is empty: enter the entry point or port and the final destination.");
+  if (!lines.length || lines.every((l) => !Number(l.qty))) err("Add at least one product with a quantity.");
+  lines.forEach((l, i) => {
+    const n = `Line ${i + 1} ${l.name || ""}`.trim();
+    if (!l.name) { err(`Line ${i + 1}: choose the product.`); return; }
+    if (!Number(l.qty)) err(`${n}: quantity is empty.`);
+    if (!l.hsn) err(`${n}: HSN code is missing.`);
+    if (l.rate === "" || l.rate == null) err(`${n}: rate is missing.`); else if (Number(l.rate) <= 0) warn(`${n}: rate is zero.`);
+  });
+  return out;
+}
+
 export function preflight(s, lines, ctx) {
+  if (s.status === "proforma") return preflightProforma(s, lines, ctx);
   const out = []; const err = (t) => out.push({ level: "error", text: t }); const warn = (t) => out.push({ level: "warn", text: t });
   const f = ctx.firm, p = ctx.party;
   if (!f) err("Choose the exporting firm."); else {

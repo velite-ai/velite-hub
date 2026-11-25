@@ -49,6 +49,36 @@ export function crossCheckPapers(papers, s, lines, party, firm) {
   return out;
 }
 
+// Stage 1 (order received, proforma to be sent): only the proforma and what it prints are audited.
+function proformaAudit(c, items, passed, add, group, tot) {
+  const { s, lines, firm, party } = c;
+  group("Firm", "IEC, GSTIN and bank details look valid", () => {
+    if (!firm) return;
+    if (firm.iec && !/^[A-Z0-9]{10}$/.test(firm.iec)) add("error", "Firm", `${firm.name}: IEC ${firm.iec} is not 10 letters or digits.`);
+    const b = firm.bank || {}; if (b.ifsc && !IFSC.test(b.ifsc)) add("error", "Firm", `${firm.name}: IFSC ${b.ifsc} is not in the right format.`);
+  });
+  group("Buyer", "IDs are consistent", () => { if (party?.country === "Nepal") { const ids = party.ids || {}; if (ids.PAN && ids.EXIM && !ids.EXIM.startsWith(ids.PAN)) add("error", "Buyer", `${party.name}: EXIM ${ids.EXIM} does not start with the PAN ${ids.PAN}. One of them is wrong.`); } });
+  group("Products", "HSN and prices", () => {
+    lines.forEach((l, i) => {
+      const n = `Line ${i + 1} ${l.name}`; const prod = (c.products || []).find((p) => p.id === l.product_id);
+      if (l.hsn && !/^\d{8}$/.test(l.hsn)) add("warn", "Products", `${n}: HSN ${l.hsn} is not 8 digits.`);
+      if (prod?.hsn && l.hsn && prod.hsn !== l.hsn) add("warn", "Products", `${n}: HSN ${l.hsn} differs from the product master (${prod.hsn}).`);
+      const pr = (c.prices || []).filter((x) => x.product_id === l.product_id && x.currency === s.currency); const best = pr.filter((x) => x.party_id === s.party_id)[0] || pr.filter((x) => !x.party_id).sort((a, b) => (b.as_of || "").localeCompare(a.as_of || ""))[0];
+      if (best && l.rate !== "" && l.rate != null && Math.abs(Number(l.rate) - Number(best.rate)) > 0.0049 && Number(l.rate) > 0.01) add("warn", "Products", `${n}: rate ${l.rate} differs from the price list (${best.rate}).`);
+    });
+  });
+  const ctx = paperContext(s, lines, { firms: [firm].filter(Boolean), parties: [party, c.notify, c.brandOwner].filter(Boolean), agents: [] }, true);
+  const pi = buildPaper("proforma", ctx);
+  group("Papers", "the proforma shows the same numbers as the shipment", () => {
+    const t = text(pi); const miss = (what, str) => { if (str && !t.includes(String(str))) add("error", "Papers", `The proforma does not show ${what} (${str}).`); };
+    miss("the proforma number", s.proforma_no); miss("the total", money(tot.amount, s.currency)); if (party) miss("the buyer's name", party.name); if (firm?.iec) miss("the IEC", firm.iec);
+    lines.forEach((l) => { if (l.hsn) miss("the HSN code", l.hsn); });
+  });
+  if (c.saved.proforma && c.saved.proforma.input_hash !== fingerprint(pi)) add("warn", "Papers", `The saved copy of Proforma invoice v${c.saved.proforma.version} no longer matches the order (it was changed afterwards). Print again so the saved copy is current.`);
+  add("info", "Next step", "When the buyer confirms and the goods are ready, change the status to “Preparing dispatch” to add batches, cartons, the invoice number and the other papers.");
+  return { items, passed, errors: items.filter((i) => i.level === "error").length, warnings: items.filter((i) => i.level === "warn").length, papers: { proforma: pi } };
+}
+
 // ctx: { s, lines, firm, party, notify, brandOwner, country (rule row), d (masters), others (other shipments), attachments, saved (latest saved copy per kind), batchState, today, products, prices }
 export function auditShipment(c) {
   const { s, lines, firm, party, country, attachments = [], saved = {}, today } = c; const items = []; const passed = [];
@@ -63,6 +93,8 @@ export function auditShipment(c) {
   const pre = preflight(s, lines, { firm, party, country, others: c.others, batchState: c.batchState, today });
   pre.filter((i) => i.level !== "info").forEach((i) => add(i.level, "Shipment", i.text));
   if (!pre.some((i) => i.level !== "info")) passed.push("Shipment: all required details are filled in");
+
+  if (s.status === "proforma") return proformaAudit(c, items, passed, add, group, tot);
 
   // 2 · master-data and format rules
   group("Firm", "IEC, GSTIN and bank details look valid", () => {

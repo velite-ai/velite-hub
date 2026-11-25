@@ -37,7 +37,7 @@ export function Paper({ paper }) {
 }
 
 export default function Papers({ ship, lines, d, batchState, onClose }) {
-  const [kind, setKind] = useState("invoice"); const [plain, setPlain] = useState(readPlain); const [anyway, setAnyway] = useState(false);
+  const [kind, setKind] = useState(ship.status === "proforma" ? "proforma" : "invoice"); const [plain, setPlain] = useState(readPlain); const [anyway, setAnyway] = useState(false);
   const [saved, setSaved] = useState([]); const [atts, setAtts] = useState([]); const [printing, setPrinting] = useState(null); const [view, setView] = useState(null);
   const togglePlain = (v) => { setPlain(v); try { localStorage.setItem(PLAIN_KEY, v ? "1" : "0"); } catch { /* ignore */ } };
   const loadSaved = async () => { const { data } = await supabase.from("exp_documents").select("id,kind,title,version,input_hash,created_by_name,created_at,content").eq("shipment_id", ship.id).order("created_at", { ascending: false }); setSaved(data || []); };
@@ -86,13 +86,14 @@ export default function Papers({ ship, lines, d, batchState, onClose }) {
         <div className="mt-dup">⛔ {problems.length} problem{problems.length > 1 ? "s" : ""} in the shipment still to fix: {problems.slice(0, 3).map((p) => p.text).join(" · ")}{problems.length > 3 ? " …" : ""}
           <label style={{ display: "block", marginTop: 4 }}><input type="checkbox" checked={anyway} onChange={(e) => setAnyway(e.target.checked)} /> I have read them. Make the papers anyway.</label></div>)}
       <AuditPanel audit={audit} />
-      <div className="ipanel"><div className="ipanel-head"><div><h3>{country ? `${country.country}: papers needed` : "Papers"}</h3><p>The Hub prepares the ones marked ✓ in the tabs below. Papers like the shipping bill, e-way bill, MSDS or COA are attached separately.</p></div></div>
+      {ship.status === "proforma" && <div className="rg-note amber">Order stage: only the proforma invoice is made now. The invoice, packing list and the other papers appear when the status is changed to “Preparing dispatch”.</div>}
+      {ship.status !== "proforma" && <div className="ipanel"><div className="ipanel-head"><div><h3>{country ? `${country.country}: papers needed` : "Papers"}</h3><p>The Hub prepares the ones marked ✓ in the tabs below. Papers like the shipping bill, e-way bill, MSDS or COA are attached separately.</p></div></div>
         {todo.length === 0 ? <div className="small-muted">No list for this country yet. Add it under Countries.</div> : todo.map((t, i) => (
           <div key={i} className="qc-row"><span className="qc-row-main"><b>{t.name}</b></span>
             {t.kind ? <button className="btn-ghost sm" onClick={() => { setView(null); setKind(t.kind); }}>{latest(t.kind) ? `✓ saved v${latest(t.kind).version}` : "Prepare"}</button> : <span className="small-muted">attach separately</span>}</div>))}
-      </div>
+      </div>}
       <div className="tk-views qc-tabs">
-        {KINDS.map(([k, l]) => <button key={k} className={!view && kind === k ? "on" : ""} onClick={() => { setView(null); setKind(k); }}>{l}{latest(k) ? " ✓" : ""}</button>)}
+        {KINDS.filter(([k]) => ship.status !== "proforma" || k === "proforma").map(([k, l]) => <button key={k} className={!view && kind === k ? "on" : ""} onClick={() => { setView(null); setKind(k); }}>{l}{latest(k) ? " ✓" : ""}</button>)}
       </div>
       <div className="qc-filters" style={{ margin: "8px 0" }}>
         <label style={{ flex: 1, fontSize: 14 }}><input type="checkbox" checked={!plain} onChange={(e) => togglePlain(!e.target.checked)} /> I print on pre-printed letterhead (leave the top blank, do not print the firm header)</label>
