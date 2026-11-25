@@ -35,7 +35,7 @@ const up = (s) => String(s || "").toUpperCase();
 const MODE = { road: "BY ROAD", air: "BY AIR", sea: "BY SEA", "road+sea": "BY ROAD, THEN BY SEA", "air+road": "BY AIR, THEN BY ROAD" };
 
 export const KINDS = [
-  ["proforma", "Proforma invoice"], ["invoice", "Export invoice"], ["packing", "Packing list"], ["coo", "Certificate of origin"], ["declaration", "Declaration"], ["nondg", "Non-DG declaration"], ["narcotics", "Non-narcotics letter"],
+  ["proforma", "Proforma invoice"], ["invoice", "Export invoice"], ["packing", "Packing list"], ["coo", "Certificate of origin"], ["declaration", "Declaration"], ["nondg", "Non-DG declaration"], ["narcotics", "Non-narcotics letter"], ["loa", "Letter of authority"], ["ingredients", "Ingredient list"],
 ];
 
 // the edition of the IATA Dangerous Goods Regulations named in the declaration, as in the firm's own format
@@ -48,6 +48,8 @@ export function kindOfCountryDoc(name) {
   if (/proforma/.test(s)) return "proforma";
   if (/non-?dg|dangerous/.test(s)) return "nondg";
   if (/narcotic/.test(s)) return "narcotics";
+  if (/letter of authori|authori[sz]ation letter/.test(s)) return "loa";
+  if (/ingredient/.test(s)) return "ingredients";
   if (/packing/.test(s)) return "packing";
   if (/origin/.test(s)) return "coo";
   if (/scomet|declaration/.test(s) && !/letter of authority/.test(s)) return "declaration";
@@ -147,13 +149,40 @@ export function buildPaper(kind, c) {
       { t: "para", text: `S/B No.: ${sb ? sb.ref_no || sb.facts?.ref_no || "" : "____________"}        Dt.: ${sb && (sb.doc_date || sb.facts?.doc_date) ? dmy(sb.doc_date || sb.facts.doc_date, ".") : "____________"}\nInv. No. ${s.invoice_no || ""}   DATED ${dmy(s.invoice_date, ".")}` },
       { t: "para", text: "Thanking You\nYours truly" }, sign(f)] };
   }
+  if (kind === "loa") {
+    const au = p?.authority || {}; const names = [...new Set(lines.map((l) => l.name).filter(Boolean))];
+    const marks = String(au.trademarks || "").split(/[,;\n]+/).map((x) => x.trim()).filter(Boolean); const mk = marks.length ? ` under the trademark${marks.length > 1 ? "s" : ""} ${marks.map((m) => `"${m}"`).join(" and ")}` : "";
+    const rep = au.representative || "____________"; const authority = au.authority || "Food and Drug Administration";
+    const month = (d) => (d ? `${["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][+d.slice(5, 7) - 1]}, ${d.slice(0, 4)}` : "");
+    return { kind, title: "Letter of authority", file: `Letter of authority ${p?.name || ""}`, blocks: [
+      head(f, c.plain), { t: "title", text: "Authorization Letter" }, { t: "para", text: "To Whom It May Concern" },
+      { t: "para", text: `We, the undersigned, ${up(f.name)} situated at ${f.address || ""}, agree to be manufacturer for ${p?.name || ""}, located at ${p?.address || ""}${mk} for the following Items:` },
+      { t: "para", text: names.map((n, i) => `${i + 1}. ${n}`).join("\n") },
+      { t: "para", text: `And, ${p?.name || ""} hereby give allowance to ${rep} in order to contact the ${authority}, therefore, ${rep} will be responsible for the matters, pertaining to the above products notification, registration with the ${authority}.` },
+      au.valid_to && { t: "para", text: `This Letter of Authorization (LOA) is valid from ${month(au.valid_from)} to ${month(au.valid_to)}.` },
+      { t: "para", text: "Yours sincerely," }, sign(f)].filter(Boolean) };
+  }
+  if (kind === "ingredients") {
+    const blocks = [head(f, c.plain), { t: "title", text: "INGREDIENT LIST WITH PERCENTAGE COMPOSITION" }, { t: "para", text: `Products supplied by ${up(f.name)} to ${p?.name || ""} against Invoice No. ${s.invoice_no || ""} dated ${dmy(s.invoice_date, ".")}.`, small: true }];
+    const seen = new Set();
+    lines.forEach((l, i) => {
+      const rid = l.reg_product_id || (c.products || []).find((x) => x.id === l.product_id)?.reg_product_id; const key = rid || l.name; if (seen.has(key)) return; seen.add(key);
+      const fl = (rid && c.formulas?.[rid]) || [];
+      blocks.push({ t: "para", text: `${seen.size}. ${l.name}`, bold: true });
+      if (!fl.length) { blocks.push({ t: "para", text: "(formula not available)", small: true }); return; }
+      const pct = (x) => (x.pct_text ? x.pct_text : x.pct != null && x.pct !== "" ? String(Number(x.pct)) : "");
+      const sum = fl.reduce((a, x) => a + (x.pct != null && x.pct !== "" ? Number(x.pct) : 0), 0); const allNum = fl.every((x) => x.pct != null && x.pct !== "");
+      blocks.push({ t: "table", head: ["S.No.", "Ingredient (INCI name)", "% w/w"], widths: [10, 70, 20], align: "clr", rows: fl.map((x, j) => [String(j + 1), x.inci_name || x.label || "", pct(x)]), foot: allNum ? [["", "Total", String(Math.round(sum * 100) / 100)]] : undefined });
+    });
+    blocks.push(sign(f)); return { kind, title: "Ingredient list", file: `Ingredient list ${s.invoice_no || ""}`, blocks };
+  }
   return null;
 }
 
 // everything needed to build the papers of one shipment
-export function paperContext(s, lines, d, plain, attachments = []) {
+export function paperContext(s, lines, d, plain, attachments = [], formulas = {}) {
   return { s, lines: lines.map((l, i) => ({ ...l, __i: i })), firm: d.firms.find((f) => f.id === s.firm_id), party: d.parties.find((x) => x.id === s.party_id), notify: d.parties.find((x) => x.id === s.notify_id) || null,
-    brandOwner: d.parties.find((x) => x.id === s.brand_owner_id) || null, transporter: d.agents.find((x) => x.id === s.transporter_id) || null, agent: d.agents.find((x) => x.id === s.agent_id) || null, plain, attachments };
+    brandOwner: d.parties.find((x) => x.id === s.brand_owner_id) || null, transporter: d.agents.find((x) => x.id === s.transporter_id) || null, agent: d.agents.find((x) => x.id === s.agent_id) || null, plain, attachments, formulas, products: d.products || [] };
 }
 
 // a short fingerprint of a paper's content (the letterhead choice is ignored), to know whether a saved copy is still current

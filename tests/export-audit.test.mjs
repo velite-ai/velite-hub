@@ -56,6 +56,19 @@ assert.equal(r.items.filter((i) => i.area === "Outside documents" && i.level !==
 r = run({ country: fscC, attachments: [{ kind: "fsc", facts: { valid_until: "2026-12-31", products: "Azelux AZ Serum 30ml" } }] });
 assert.ok(has(r, "warn", "valid only up to"));
 r = run({ country: { ...country, docs: ["Non-DG certificate"] } }); assert.ok(has(r, "warn", "Not yet prepared or attached: Non-DG certificate"));
+// Myanmar: letter of authority validity and ingredient list data
+const myC = { ...country, country: "Myanmar", docs: ["Letter of authority", "Ingredient list with percentages"] };
+const myParty = { ...party, authority: { representative: "Mr. Wai", trademarks: "CutaPro", valid_from: "2026-05", valid_to: "2028-04" } };
+const myProd = [{ id: "pr", hsn: "33049910", reg_product_id: "rp" }];
+const goodF = { rp: [{ label: "Water", pct: 85 }, { label: "Glycerin", pct: 15 }] };
+r = run({ country: myC, party: myParty, products: myProd, formulas: goodF });
+assert.ok(!r.items.some((i) => ["Letter of authority", "Ingredient list"].includes(i.area)), JSON.stringify(r.items.filter((i) => ["Letter of authority", "Ingredient list"].includes(i.area))));
+r = run({ country: myC, party: { ...myParty, authority: { ...myParty.authority, valid_to: "2026-09" } }, products: myProd, formulas: goodF }); assert.ok(has(r, "error", "does not cover the invoice date"));
+r = run({ country: myC, party: { ...myParty, authority: {} }, products: myProd, formulas: goodF }); assert.ok(has(r, "error", "authorised person is not entered"));
+r = run({ country: myC, party: myParty, products: [{ id: "pr", hsn: "33049910" }], formulas: goodF }); assert.ok(has(r, "error", "not linked to a Regulatory product"));
+r = run({ country: myC, party: myParty, products: myProd, formulas: { rp: [{ label: "Water", pct: 80 }, { label: "Glycerin", pct: 5 }] } }); assert.ok(has(r, "warn", "add up to 85"));
+r = run({ country: myC, party: myParty, products: myProd, formulas: { rp: [{ label: "Water", pct: 80 }, { label: "Glycerin" }] } }); assert.ok(has(r, "warn", "no percentage for 1 of 2"));
+r = run({ country: myC, party: myParty, products: myProd, formulas: { rp: [] } }); assert.ok(has(r, "error", "has no formula yet"));
 assert.ok(ATTACH.length > 10);
 console.log("export audit tests passed");
 

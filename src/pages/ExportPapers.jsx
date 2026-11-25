@@ -38,17 +38,25 @@ export function Paper({ paper }) {
 
 export default function Papers({ ship, lines, d, batchState, onClose }) {
   const [kind, setKind] = useState(ship.status === "proforma" ? "proforma" : "invoice"); const [plain, setPlain] = useState(readPlain); const [anyway, setAnyway] = useState(false);
-  const [ask, setAsk] = useState(null); const orderOk = useRef(false); const [saved, setSaved] = useState([]); const [atts, setAtts] = useState([]); const [printing, setPrinting] = useState(null); const [view, setView] = useState(null);
+  const [formulas, setFormulas] = useState(null); const [ask, setAsk] = useState(null); const orderOk = useRef(false); const [saved, setSaved] = useState([]); const [atts, setAtts] = useState([]); const [printing, setPrinting] = useState(null); const [view, setView] = useState(null);
   const togglePlain = (v) => { setPlain(v); try { localStorage.setItem(PLAIN_KEY, v ? "1" : "0"); } catch { /* ignore */ } };
   const loadSaved = async () => { const { data } = await supabase.from("exp_documents").select("id,kind,title,version,input_hash,created_by_name,created_at,content").eq("shipment_id", ship.id).order("created_at", { ascending: false }); setSaved(data || []); };
   const loadAtts = async () => { const { data } = await supabase.from("exp_attachments").select("*").eq("shipment_id", ship.id); setAtts(data || []); };
   useEffect(() => { loadSaved(); loadAtts(); }, [ship.id]); // eslint-disable-line
-  const ctx = useMemo(() => paperContext(ship, lines, d, plain, atts), [ship, lines, d, plain, atts]);
+  // formulas of the Regulatory products linked to the shipment's products (for the ingredient list); needs Regulatory access
+  useEffect(() => {
+    const ids = [...new Set(lines.map((l) => d.products.find((p) => p.id === l.product_id)?.reg_product_id).filter(Boolean))];
+    if (!ids.length) { setFormulas({}); return; }
+    supabase.from("reg_formula_lines").select("product_id,position,label,inci_name,pct,pct_text").in("product_id", ids).order("position").then(({ data, error }) => {
+      if (error || !data) { setFormulas(null); return; } const m = Object.fromEntries(ids.map((i) => [i, []])); data.forEach((x) => m[x.product_id].push(x)); setFormulas(m);
+    });
+  }, [ship.id, lines.length]); // eslint-disable-line
+  const ctx = useMemo(() => paperContext(ship, lines, d, plain, atts, formulas || {}), [ship, lines, d, plain, atts, formulas]);
   const papers = useMemo(() => Object.fromEntries(KINDS.map(([k]) => [k, buildPaper(k, ctx)])), [ctx]);
   const paper = view ? view.content : papers[kind];
   const latestMap = useMemo(() => { const m = {}; saved.forEach((x) => { if (!m[x.kind] || x.version > m[x.kind].version) m[x.kind] = x; }); return m; }, [saved]);
   const audit = useMemo(() => auditShipment({ s: ship, lines, firm: ctx.firm, party: ctx.party, notify: ctx.notify, brandOwner: ctx.brandOwner, transporter: ctx.transporter, agent: ctx.agent, country: d.countries.find((c) => c.country === ship.country),
-    attachments: atts, saved: latestMap, others: d.shipments.filter((x) => x.id !== ship.id), batchState, today: todayISO(), products: d.products, prices: d.prices }), [ship, lines, ctx, d, atts, latestMap, batchState]);
+    attachments: atts, saved: latestMap, others: d.shipments.filter((x) => x.id !== ship.id), batchState, today: todayISO(), products: d.products, prices: d.prices, formulas }), [ship, lines, ctx, d, atts, latestMap, batchState, formulas]);
   const problems = audit.items.filter((i) => i.level === "error");
   const blocked = problems.length > 0 && !anyway;
   const country = d.countries.find((c) => c.country === ship.country);
