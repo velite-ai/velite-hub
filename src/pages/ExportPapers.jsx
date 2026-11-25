@@ -5,7 +5,8 @@ import { toast } from "../lib/data";
 import { Empty } from "../components/ui";
 import { KINDS, buildPaper, paperContext, kindOfCountryDoc, fingerprint } from "../lib/exportDocs";
 import { paperToDocx } from "../lib/exportDocx";
-import { preflight } from "../lib/shipment";
+import { auditShipment } from "../lib/exportAudit";
+import { AuditPanel, Records } from "./ExportAudit";
 import { todayISO } from "../lib/qc";
 
 // Papers of one shipment: preview, print, Word, and an automatic saved copy every time a paper is printed or downloaded.
@@ -37,17 +38,21 @@ export function Paper({ paper }) {
 
 export default function Papers({ ship, lines, d, batchState, onClose }) {
   const [kind, setKind] = useState("invoice"); const [plain, setPlain] = useState(readPlain); const [anyway, setAnyway] = useState(false);
-  const [saved, setSaved] = useState([]); const [printing, setPrinting] = useState(null); const [view, setView] = useState(null);
+  const [saved, setSaved] = useState([]); const [atts, setAtts] = useState([]); const [printing, setPrinting] = useState(null); const [view, setView] = useState(null);
   const togglePlain = (v) => { setPlain(v); try { localStorage.setItem(PLAIN_KEY, v ? "1" : "0"); } catch { /* ignore */ } };
   const loadSaved = async () => { const { data } = await supabase.from("exp_documents").select("id,kind,title,version,input_hash,created_by_name,created_at,content").eq("shipment_id", ship.id).order("created_at", { ascending: false }); setSaved(data || []); };
-  useEffect(() => { loadSaved(); }, [ship.id]); // eslint-disable-line
+  const loadAtts = async () => { const { data } = await supabase.from("exp_attachments").select("*").eq("shipment_id", ship.id); setAtts(data || []); };
+  useEffect(() => { loadSaved(); loadAtts(); }, [ship.id]); // eslint-disable-line
   const ctx = useMemo(() => paperContext(ship, lines, d, plain), [ship, lines, d, plain]);
   const papers = useMemo(() => Object.fromEntries(KINDS.map(([k]) => [k, buildPaper(k, ctx)])), [ctx]);
   const paper = view ? view.content : papers[kind];
-  const problems = useMemo(() => preflight(ship, lines.map((l) => ({ ...l })), { firm: ctx.firm, party: ctx.party, country: d.countries.find((c) => c.country === ship.country), others: d.shipments.filter((x) => x.id !== ship.id), batchState, today: todayISO() }).filter((c) => c.level === "error"), [ship, lines, ctx, d, batchState]);
+  const latestMap = useMemo(() => { const m = {}; saved.forEach((x) => { if (!m[x.kind] || x.version > m[x.kind].version) m[x.kind] = x; }); return m; }, [saved]);
+  const audit = useMemo(() => auditShipment({ s: ship, lines, firm: ctx.firm, party: ctx.party, notify: ctx.notify, brandOwner: ctx.brandOwner, transporter: ctx.transporter, agent: ctx.agent, country: d.countries.find((c) => c.country === ship.country),
+    attachments: atts, saved: latestMap, others: d.shipments.filter((x) => x.id !== ship.id), batchState, today: todayISO(), products: d.products, prices: d.prices }), [ship, lines, ctx, d, atts, latestMap, batchState]);
+  const problems = audit.items.filter((i) => i.level === "error");
   const blocked = problems.length > 0 && !anyway;
   const country = d.countries.find((c) => c.country === ship.country);
-  const latest = (k) => saved.find((x) => x.kind === k);
+  const latest = (k) => latestMap[k];
 
   // one more version only when the paper's content has changed since the last saved copy
   const saveCopy = async (p) => {
@@ -80,6 +85,7 @@ export default function Papers({ ship, lines, d, batchState, onClose }) {
       {problems.length > 0 && (
         <div className="mt-dup">⛔ {problems.length} problem{problems.length > 1 ? "s" : ""} in the shipment still to fix: {problems.slice(0, 3).map((p) => p.text).join(" · ")}{problems.length > 3 ? " …" : ""}
           <label style={{ display: "block", marginTop: 4 }}><input type="checkbox" checked={anyway} onChange={(e) => setAnyway(e.target.checked)} /> I have read them. Make the papers anyway.</label></div>)}
+      <AuditPanel audit={audit} />
       <div className="ipanel"><div className="ipanel-head"><div><h3>{country ? `${country.country}: papers needed` : "Papers"}</h3><p>The Hub prepares the ones marked ✓ in the tabs below. Papers like the shipping bill, e-way bill, MSDS or COA are attached separately.</p></div></div>
         {todo.length === 0 ? <div className="small-muted">No list for this country yet. Add it under Countries.</div> : todo.map((t, i) => (
           <div key={i} className="qc-row"><span className="qc-row-main"><b>{t.name}</b></span>
@@ -102,6 +108,7 @@ export default function Papers({ ship, lines, d, batchState, onClose }) {
         {saved.length === 0 ? <Empty>Nothing saved yet. A copy is saved the first time you print or download a paper.</Empty> : saved.map((x) => (
           <div key={x.id} className="qc-row"><span className="qc-row-main"><b>{x.title} v{x.version}</b><small>{stamp(x.created_at)} · {x.created_by_name}</small></span><button className="btn-ghost sm" onClick={() => { setView({ ...x, content: x.content }); window.scrollTo(0, 0); }}>View</button></div>))}
       </div>
+      <Records ship={ship} rows={atts} reload={loadAtts} />
       {printing && createPortal(<div id="exp-print"><Paper paper={printing} /></div>, document.body)}
     </div>
   );

@@ -130,7 +130,7 @@ export function paperContext(s, lines, d, plain) {
     brandOwner: d.parties.find((x) => x.id === s.brand_owner_id) || null, transporter: d.agents.find((x) => x.id === s.transporter_id) || null, agent: d.agents.find((x) => x.id === s.agent_id) || null, plain };
 }
 
-// a short fingerprint of a paper's content, to know whether a saved copy is still current
+// a short fingerprint of a paper's content (the letterhead choice is ignored), to know whether a saved copy is still current
 export function fingerprint(paper) {
-  const str = JSON.stringify(paper.blocks); let h = 5381; for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + str.length.toString(36);
+  const str = JSON.stringify(paper.blocks.filter((b) => b && b.t !== "head" && b.t !== "gap")); let h = 5381; for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + str.length.toString(36);
 }
