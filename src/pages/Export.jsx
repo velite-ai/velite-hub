@@ -5,6 +5,7 @@ import { useData, run, toast } from "../lib/data";
 import { Modal, Field, Empty, SearchBox, useConfirm } from "../components/ui";
 import { FIRM_COLORS } from "./compliance/common";
 import Shipments from "./ExportShipments";
+import { SentEmails } from "./ExportMail";
 import { FIRM_IDS, readProductSheet, planImport, normName, FIELD_LABEL } from "../lib/export";
 
 // Export: masters that every export document is built from (firms and signatories, buyers / consignees / brand owners, agents,
@@ -19,14 +20,14 @@ const KINDS = [["transporter", "Transporter"], ["cha", "Customs agent (CHA)"], [
 const FirmTag = ({ id }) => <span className="tk-firm" style={{ background: FIRM_COLORS[id] }}>{id}</span>;
 
 export default function Export() {
-  const { expFirms, expParties, expAgents, expProducts, expPrices, expCountries, isOwner } = useData();
+  const { expFirms, expParties, expAgents, expProducts, expPrices, expCountries, expShipments, isOwner } = useData();
   const [view, setView] = useState("shipments");
   const firms = expFirms.rows;
   const parties = useMemo(() => expParties.rows.filter((r) => !r.deleted_at), [expParties.rows]);
   const agents = useMemo(() => expAgents.rows.filter((r) => !r.deleted_at), [expAgents.rows]);
   const products = useMemo(() => expProducts.rows.filter((r) => !r.deleted_at), [expProducts.rows]);
   const countries = expCountries.rows;
-  const tabs = [["shipments", "📦 Shipments"], ["overview", "🏠 Overview"], ["products", `🧴 Products (${products.length})`], ["parties", `🤝 Parties (${parties.length})`], ["firms", "🏢 Our firms"], ["countries", `🌍 Countries (${countries.length})`], ["agents", `🚚 Agents (${agents.length})`]];
+  const tabs = [["shipments", "📦 Shipments"], ["overview", "🏠 Overview"], ["products", `🧴 Products (${products.length})`], ["parties", `🤝 Parties (${parties.length})`], ["firms", "🏢 Our firms"], ["countries", `🌍 Countries (${countries.length})`], ["agents", `🚚 Agents (${agents.length})`], ["mail", "✉️ Sent emails"]];
   return (
     <div className="section qcp">
       <div className="mt-hero ex-hero"><div><div className="mt-hero-title">🚢 Export</div>
@@ -38,6 +39,7 @@ export default function Export() {
         : view === "parties" ? <Parties rows={parties} countries={countries} reload={expParties.reload} />
         : view === "firms" ? <Firms rows={firms} reload={expFirms.reload} />
         : view === "countries" ? <Countries rows={countries} reload={expCountries.reload} isOwner={isOwner} />
+        : view === "mail" ? <SentEmails shipments={expShipments.rows} />
         : <Agents rows={agents} reload={expAgents.reload} />}
     </div>
   );
