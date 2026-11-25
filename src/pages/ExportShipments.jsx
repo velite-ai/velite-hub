@@ -6,6 +6,7 @@ import { FIRM_COLORS } from "./compliance/common";
 import { fmtD, fmtM, todayISO, stateOf, STATE_LABEL, STATE_COLOR } from "../lib/qc";
 import { normName } from "../lib/export";
 import { packLines, totals, lineAmount, preflight } from "../lib/shipment";
+import Papers from "./ExportPapers";
 
 // Shipments: choose country and party, add products and batches, type the invoice number and exchange rate.
 // The check below the form says what is missing or wrong before any paper is made.
@@ -38,7 +39,7 @@ function ctxFor(s, lines, d, batchState) {
 
 export default function Shipments() {
   const { expFirms, expParties, expProducts, expPrices, expCountries, expAgents, expShipments, expLines, canBatch, batches } = useData();
-  const [open, setOpen] = useState(null); const [q, setQ] = useState("");
+  const [open, setOpen] = useState(null); const [papers, setPapers] = useState(null); const [q, setQ] = useState("");
   const batchState = useBatchState(canBatch);
   const d = useMemo(() => ({ firms: expFirms.rows, parties: expParties.rows.filter((p) => !p.deleted_at), countries: expCountries.rows, agents: expAgents.rows.filter((a) => !a.deleted_at),
     products: expProducts.rows.filter((p) => !p.deleted_at), prices: expPrices.rows, shipments: expShipments.rows.filter((x) => !x.deleted_at), batches: canBatch ? batches.rows.filter((b) => !b.deleted_at) : [] }),
@@ -46,7 +47,8 @@ export default function Shipments() {
   const linesOf = useMemo(() => { const m = {}; expLines.rows.forEach((l) => (m[l.shipment_id] ||= []).push(l)); return m; }, [expLines.rows]);
   const list = useMemo(() => { const s = q.trim().toLowerCase(); return d.shipments.filter((x) => !s || [x.invoice_no, x.country, x.po_no, d.parties.find((p) => p.id === x.party_id)?.name].join(" ").toLowerCase().includes(s)); }, [d, q]);
   const reload = () => { expShipments.reload(); expLines.reload(); };
-  if (open) return <Editor ship={open.id ? open : null} lines={open.id ? linesOf[open.id] || [] : []} d={d} batchState={batchState} onClose={() => setOpen(null)} onSaved={reload} />;
+  if (papers) return <Papers ship={papers} lines={(linesOf[papers.id] || []).slice().sort((a, b) => a.position - b.position)} d={d} batchState={batchState} onClose={() => setPapers(null)} />;
+  if (open) return <Editor ship={open.id ? open : null} lines={open.id ? linesOf[open.id] || [] : []} d={d} batchState={batchState} onClose={() => setOpen(null)} onSaved={reload} onPapers={(x) => { setOpen(null); setPapers(x); }} />;
   return (
     <>
       <div className="qc-filters" style={{ marginBottom: 8 }}>
@@ -54,13 +56,14 @@ export default function Shipments() {
         <button className="btn-primary sm" onClick={() => setOpen({})}>＋ New shipment</button>
       </div>
       {list.length === 0 ? <Empty>{d.shipments.length ? "No shipment matches." : "No shipments yet. Start one with “New shipment”."}</Empty> : (
-        <div className="table-wrap"><table className="tbl qc-tbl"><thead><tr><th>Invoice</th><th>Date</th><th>Party</th><th>Qty</th><th>Value</th><th>Cartons</th><th>Status</th><th>Check</th></tr></thead>
+        <div className="table-wrap"><table className="tbl qc-tbl"><thead><tr><th>Invoice</th><th>Date</th><th>Party</th><th>Qty</th><th>Value</th><th>Cartons</th><th>Status</th><th>Check</th><th></th></tr></thead>
           <tbody>{list.map((x) => {
             const ls = (linesOf[x.id] || []); const t = totals(ls); const pk = packLines(ls); const errs = preflight(x, ls, ctxFor(x, ls, d, batchState)).filter((i) => i.level === "error").length;
             return (<tr key={x.id} className="qc-tr" onClick={() => setOpen(x)}>
               <td><span className="tk-firm" style={{ background: FIRM_COLORS[x.firm_id] }}>{x.firm_id}</span><b>{x.invoice_no || "no number"}</b></td><td>{fmtD(x.invoice_date) || "—"}</td>
               <td>{d.parties.find((p) => p.id === x.party_id)?.name || "—"} <small className="small-muted">{x.country}</small></td><td>{t.qty || "—"}</td><td>{t.qty ? money(t.amount, x.currency) : "—"}</td><td>{pk.boxes || "—"}</td>
-              <td>{STATUS.find((s) => s[0] === x.status)?.[1] || x.status}</td><td>{errs ? <span style={{ color: "#b91c1c" }}>⚠ {errs}</span> : <span style={{ color: "#16a34a" }}>✓</span>}</td></tr>);
+              <td>{STATUS.find((s) => s[0] === x.status)?.[1] || x.status}</td><td>{errs ? <span style={{ color: "#b91c1c" }}>⚠ {errs}</span> : <span style={{ color: "#16a34a" }}>✓</span>}</td>
+              <td onClick={(e) => e.stopPropagation()}><button className="btn-ghost sm" onClick={() => setPapers(x)}>📄 Papers</button></td></tr>);
           })}</tbody></table></div>)}
     </>
   );
@@ -68,7 +71,7 @@ export default function Shipments() {
 
 const blankLine = () => ({ key: newKey(), product_id: null, name: "", hsn: "", product_hsn: "", brand_owner: "", batch_id: null, batch_no: "", mfg: "", exp: "", qty: "", rate: "", pcs_per_carton: "", net_kg: "", gross_kg: "", partial_net: "", partial_gross: "", manual: false });
 
-export function Editor({ ship, lines: saved, d, batchState, onClose, onSaved }) {
+export function Editor({ ship, lines: saved, d, batchState, onClose, onSaved, onPapers }) {
   const { isOwner } = useData(); const [ask, dialog] = useConfirm();
   const [s, setS] = useState(() => ship ? { ...ship } : { firm_id: "VH", country: "", party_id: null, notify_id: null, brand_owner_id: null, invoice_no: "", invoice_date: todayISO(), proforma_no: "", proforma_date: "", po_no: "", po_date: "",
     currency: "INR", exchange_rate: "", transport_mode: "road", port_loading: "Ludhiana, Punjab, India", port_discharge: "", final_destination: "", entry_point: "", agent_id: null, transporter_id: null, eway_bill: "", gr_no: "", payment_terms: "", delivery_terms: "", status: "draft", notes: "" });
@@ -148,6 +151,7 @@ export function Editor({ ship, lines: saved, d, batchState, onClose, onSaved }) 
         <button className="btn-ghost sm" onClick={onClose}>← All shipments</button>
         <b style={{ flex: 1, fontSize: 18 }}>{ship ? `Shipment ${ship.invoice_no || ""}` : "New shipment"}</b>
         {ship && isOwner && <button className="btn-danger sm" onClick={del}>Remove</button>}
+        {ship ? <button className="btn-ghost" onClick={() => onPapers(ship)} title="Uses the saved shipment: save your changes first">📄 Papers</button> : null}
         <button className="btn-primary" onClick={save} disabled={busy}>{busy ? "Saving…" : "Save shipment"}</button>
       </div>
 
