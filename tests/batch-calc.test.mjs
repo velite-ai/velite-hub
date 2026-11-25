@@ -27,3 +27,20 @@ assert.equal(uspFor(1460, "30"), 48.67); assert.equal(uspFor(330, "100"), 3.3); 
 assert.equal(uspFor(950, "200 ml"), 4.75); assert.equal(uspFor(1499, "50g"), 29.98); assert.equal(uspFor(650, "30 ML"), 21.67);
 assert.equal(uspFor("", "30"), null); assert.equal(uspFor(100, ""), null); assert.equal(uspFor(100, "pack"), null);
 console.log("batch calculation tests passed");
+
+// pack size: number + unit, suggested from the last batch of the product, else from the product name
+import { parsePack, packFromName, lastPack, packText } from "../src/lib/batchCalc.js";
+assert.deepEqual(parsePack("30 ml"), { num: "30", unit: "ml" }); assert.deepEqual(parsePack("50G"), { num: "50", unit: "g" });
+assert.deepEqual(parsePack("100 GM"), { num: "100", unit: "g" }); assert.deepEqual(parsePack("30"), { num: "30", unit: "" }); assert.equal(parsePack("pack"), null);
+assert.deepEqual(packFromName("AZELUX AZ SERUM 30ML"), { num: "30", unit: "ml" }); assert.deepEqual(packFromName("SOLOLITE NANO GEL SPF 50 50 GM"), { num: "50", unit: "g" });
+assert.equal(packFromName("NO SIZE HERE"), null);
+const prow = [
+  { id: "1", firm_id: "VH", product_name: "LUMISHINE MAX CREAM 30G", pack_size: "30G", mfg: "2026-08-01" },
+  { id: "2", firm_id: "VH", product_name: "Lumishine Max Cream 30 g", pack_size: "30", mfg: "2026-10-01" },   // old value without a unit
+  { id: "3", firm_id: "VP", product_name: "LUMISHINE MAX CREAM 30G", pack_size: "99 ml", mfg: "2026-11-01" },
+];
+assert.deepEqual(lastPack(prow, "VH", "LUMISHINE MAX CREAM 30G"), { num: "30", unit: "g" });   // newest batch, unit read from the name
+assert.equal(lastPack(prow, "VH", "UNKNOWN"), null);
+assert.equal(packText("30", "g"), "30 g"); assert.equal(packText("", "g"), null);
+assert.equal(uspFor(699, packText("30", "g")), 23.3);
+console.log("pack size tests passed");
