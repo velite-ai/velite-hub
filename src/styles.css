@@ -976,3 +976,19 @@ button.qc-row{cursor:pointer;} button.qc-row:hover{background:#f9fafb;}
 .ex-mini{width:80px;padding:4px 6px;}
 .ex-total{margin-top:8px;font-size:15px;}
 .ex-check{padding:6px 10px;border-radius:8px;margin-top:5px;font-size:14px;background:#f8fafc;} .ex-check.error{background:#fef2f2;color:#991b1b;} .ex-check.warn{background:#fffbeb;color:#92400e;}
+
+/* Export papers */
+.ep-scroll{overflow:auto;background:#e2e8f0;padding:12px;border-radius:12px;}
+.ep-page{background:#fff;color:#111;width:210mm;max-width:none;min-height:150mm;margin:0 auto;padding:10mm;box-shadow:0 1px 6px #0003;font:10pt/1.4 Arial,Helvetica,sans-serif;box-sizing:border-box;} .ep-land{width:297mm;}
+.ep-head{text-align:center;font-size:9pt;margin-bottom:4px;} .ep-firm{font-size:16pt;font-weight:700;letter-spacing:.5px;}
+.ep-title{text-align:center;font-weight:700;font-size:13pt;margin:8px 0 2px;} .ep-sub{text-align:center;font-weight:700;margin-bottom:4px;}
+.ep-p{margin:4px 0;white-space:pre-line;} .ep-small{font-size:8.5pt;} .ep-bold{font-weight:700;}
+.ep-row{display:flex;gap:0;margin:6px 0;border:1px solid #444;} .ep-box{flex:1;padding:4px 6px;font-size:9pt;border-right:1px solid #444;} .ep-box:last-child{border-right:none;} .ep-label{font-weight:700;font-size:8pt;text-transform:uppercase;color:#333;}
+.ep-tbl{width:100%;border-collapse:collapse;margin:6px 0;} .ep-tbl th,.ep-tbl td{border:1px solid #444;padding:2px 4px;font-size:8.5pt;vertical-align:top;} .ep-tbl th{background:#eee;-webkit-print-color-adjust:exact;print-color-adjust:exact;} .ep-foot td{font-weight:700;}
+.ep-sign{margin-top:14px;text-align:right;font-size:9.5pt;break-inside:avoid;} .ep-sign-space{height:18mm;}
+#exp-print{display:none;}
+@media print{
+  body.ex-printing > *:not(#exp-print){display:none !important;}
+  #exp-print{display:block !important;position:absolute;left:0;top:0;width:100%;background:#fff;}
+  #exp-print .ep-page{box-shadow:none;width:auto;padding:0;min-height:0;margin:0;}
+}
