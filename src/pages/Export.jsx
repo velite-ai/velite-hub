@@ -4,6 +4,7 @@ import { supabase } from "../supabase";
 import { useData, run, toast } from "../lib/data";
 import { Modal, Field, Empty, SearchBox, useConfirm } from "../components/ui";
 import { FIRM_COLORS } from "./compliance/common";
+import Shipments from "./ExportShipments";
 import { FIRM_IDS, readProductSheet, planImport, normName, FIELD_LABEL } from "../lib/export";
 
 // Export: masters that every export document is built from (firms and signatories, buyers / consignees / brand owners, agents,
@@ -19,19 +20,20 @@ const FirmTag = ({ id }) => <span className="tk-firm" style={{ background: FIRM_
 
 export default function Export() {
   const { expFirms, expParties, expAgents, expProducts, expPrices, expCountries, isOwner } = useData();
-  const [view, setView] = useState("overview");
+  const [view, setView] = useState("shipments");
   const firms = expFirms.rows;
   const parties = useMemo(() => expParties.rows.filter((r) => !r.deleted_at), [expParties.rows]);
   const agents = useMemo(() => expAgents.rows.filter((r) => !r.deleted_at), [expAgents.rows]);
   const products = useMemo(() => expProducts.rows.filter((r) => !r.deleted_at), [expProducts.rows]);
   const countries = expCountries.rows;
-  const tabs = [["overview", "🏠 Overview"], ["products", `🧴 Products (${products.length})`], ["parties", `🤝 Parties (${parties.length})`], ["firms", "🏢 Our firms"], ["countries", `🌍 Countries (${countries.length})`], ["agents", `🚚 Agents (${agents.length})`]];
+  const tabs = [["shipments", "📦 Shipments"], ["overview", "🏠 Overview"], ["products", `🧴 Products (${products.length})`], ["parties", `🤝 Parties (${parties.length})`], ["firms", "🏢 Our firms"], ["countries", `🌍 Countries (${countries.length})`], ["agents", `🚚 Agents (${agents.length})`]];
   return (
     <div className="section qcp">
       <div className="mt-hero ex-hero"><div><div className="mt-hero-title">🚢 Export</div>
         <div className="mt-hero-sub">Firms, parties, products and country rules · the base for preparing and checking export documents</div></div></div>
       <div className="tk-views qc-tabs">{tabs.map(([k, l]) => <button key={k} className={view === k ? "on" : ""} onClick={() => setView(k)}>{l}</button>)}</div>
-      {view === "overview" ? <Overview firms={firms} parties={parties} products={products} prices={expPrices.rows} countries={countries} go={setView} />
+      {view === "shipments" ? <Shipments />
+        : view === "overview" ? <Overview firms={firms} parties={parties} products={products} prices={expPrices.rows} countries={countries} go={setView} />
         : view === "products" ? <Products products={products} prices={expPrices.rows} parties={parties} reloadAll={() => { expProducts.reload(); expPrices.reload(); }} />
         : view === "parties" ? <Parties rows={parties} countries={countries} reload={expParties.reload} />
         : view === "firms" ? <Firms rows={firms} reload={expFirms.reload} />
@@ -74,7 +76,7 @@ function Overview({ firms, parties, products, prices, countries, go }) {
         {todo.length ? todo : <Empty>Everything needed is filled in. 👍</Empty>}
       </div>
       <div className="ipanel"><div className="ipanel-head"><div><h3>Coming next</h3></div></div>
-        <div className="small-muted">Shipments (country, party, products, batches), automatic preparation of the invoice, packing list and other papers, the audit that compares them, and the record of every shipment. Documents will show the signatory’s name only: you print on the letterhead, stamp and sign by hand.</div></div>
+        <div className="small-muted">Automatic preparation of the proforma, invoice, packing list and the other papers from a shipment, the audit that compares them, and the record of every shipment with outside documents added. Documents will show the signatory’s name only: you print on the letterhead, stamp and sign by hand.</div></div>
     </>
   );
 }
