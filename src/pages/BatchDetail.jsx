@@ -4,7 +4,7 @@ import { useData, run, toast } from "../lib/data";
 import { Modal, Field, Empty, SearchBox, useConfirm } from "../components/ui";
 import { FIRM_COLORS } from "./compliance/common";
 import { stateOf, STATE_LABEL, STATE_COLOR, fmtD, fmtM, monthLabel, monthKey, todayISO } from "../lib/qc";
-import { KINDS, MARKETS, normBatch, groupOf, letterOf, readBatchSheet, expiryFor, shelfOf, lastShelfMonths, uspFor } from "../lib/batches";
+import { KINDS, MARKETS, normBatch, groupOf, letterOf, readBatchSheet, expiryFor, shelfOf, lastShelfMonths, uspFor, parsePack, packFromName, lastPack, packText } from "../lib/batches";
 
 // Batch Detail: the production batch-coding register (replaces the "Batch Detail" Google Sheet).
 // A batch can be split into products: V-001A is the mother, V-001B and V-001C are its children. A batch entered here
@@ -163,6 +163,8 @@ function BatchForm({ row, draft, all, products, readOnly, onClose, onSaved }) {
     shelf: row?.shelf_months ?? shelfOf(row?.mfg, row?.exp) ?? "",
   }));
   const [shelfNote, setShelfNote] = useState("");
+  const p0 = parsePack(row?.pack_size) || null;
+  const [packNum, setPackNum] = useState(p0?.num || ""); const [packUnit, setPackUnit] = useState(p0?.unit || packFromName(row?.product_name)?.unit || "ml"); const [packNote, setPackNote] = useState("");
   const [kids, setKids] = useState([]);
   const [busy, setBusy] = useState(false);
   const [ask, dialog] = useConfirm();
@@ -179,12 +181,20 @@ function BatchForm({ row, draft, all, products, readOnly, onClose, onSaved }) {
     const name = e.target.value; const y = { product_name: name };
     if (isNew || !f.shelf) { const last = lastShelfMonths(all, f.firm_id, name, row?.id); if (last) { y.shelf = last; if (f.mfg) y.exp = expiryFor(f.mfg, last); setShelfNote(`${last} months, as on the last batch of this product`); } }
     setF((x) => ({ ...x, ...y }));
+    if (isNew || !packNum) suggestPack(f.firm_id, name);
+  };
+  // pack size of the last batch of this product; if there is none, read it from the product name (30ML, 50 GM)
+  const suggestPack = (firm, name) => {
+    const last = lastPack(all, firm, name, row?.id); const guess = last || packFromName(name); if (!guess) return;
+    setPackNum(guess.num); setPackUnit(guess.unit || "ml"); setPackNote(last ? `${guess.num} ${guess.unit || "ml"}, as on the last batch of this product` : `${guess.num} ${guess.unit}, read from the product name`);
   };
   useEffect(() => { // the firm was chosen after the product was typed
-    if (!isNew || f.shelf || !f.firm_id || !f.product_name) return; const last = lastShelfMonths(all, f.firm_id, f.product_name, null);
+    if (!isNew || !f.firm_id || !f.product_name) return;
+    if (!packNum) suggestPack(f.firm_id, f.product_name);
+    if (f.shelf) return; const last = lastShelfMonths(all, f.firm_id, f.product_name, null);
     if (last) { setF((x) => ({ ...x, shelf: last, exp: x.mfg ? expiryFor(x.mfg, last) : x.exp })); setShelfNote(`${last} months, as on the last batch of this product`); }
   }, [f.firm_id]); // eslint-disable-line
-  const uspCalc = f.firm_id === "VH" ? uspFor(f.mrp, f.pack_size) : null;
+  const uspCalc = f.firm_id === "VH" ? uspFor(f.mrp, packNum) : null;
   const sib = row ? all.filter((r) => r.id !== row.id && r.firm_id === row.firm_id && r.kind === row.kind && r.group_no === row.group_no && r.series_year === row.series_year) : [];
   const names = useMemo(() => products.filter((p) => p.active && (!f.firm_id || !p.firm_id || p.firm_id === f.firm_id)).map((p) => p.name), [products, f.firm_id]);
   const suggestion = isNew && f.firm_id ? suggestBatchNo(all, f.firm_id, f.kind, f.product_name, f.mfg) : "";
@@ -198,7 +208,7 @@ function BatchForm({ row, draft, all, products, readOnly, onClose, onSaved }) {
     if (!f.mfg) { toast("Choose the manufacturing month.", "err"); return; }
     setBusy(true);
     const base = {
-      firm_id: f.firm_id, kind: f.kind, product_name: f.product_name.trim(), pack_size: f.pack_size.trim() || null, mfg: f.mfg, exp: f.exp || null,
+      firm_id: f.firm_id, kind: f.kind, product_name: f.product_name.trim(), pack_size: f.firm_id === "VH" ? packText(packNum, packUnit) : (f.pack_size.trim() || null), mfg: f.mfg, exp: f.exp || null,
       mrp: f.mrp === "" ? null : Number(f.mrp), usp: f.firm_id === "VH" ? uspCalc : (f.usp === "" ? null : Number(f.usp)), shelf_months: f.shelf === "" ? null : Math.round(Number(f.shelf)),
       batch_size: f.batch_size === "" ? null : Number(f.batch_size), batch_size_unit: f.batch_size === "" ? null : f.batch_size_unit, pieces: f.pieces === "" ? null : parseInt(f.pieces, 10),
       market: f.market.trim() || null, note: f.note.trim() || null, status: f.status,
@@ -251,7 +261,9 @@ function BatchForm({ row, draft, all, products, readOnly, onClose, onSaved }) {
           {suggestion && !f.batch_no && <button type="button" className="link-btn" onClick={() => setF((x) => ({ ...x, batch_no: suggestion }))}>Use suggested: {suggestion}</button>}</Field>
         <Field label="MRP (₹)"><input className="form-inp" type="number" min="0" step="0.01" value={f.mrp} onChange={set("mrp")} disabled={dis} /></Field>
         {f.firm_id === "VH" && <Field label="Unit sale price (₹)" hint="Worked out: MRP ÷ pack size."><input className="form-inp" value={uspCalc != null ? uspCalc.toFixed(2) : ""} disabled placeholder="MRP ÷ pack size" /></Field>}
-        {f.firm_id === "VH" && <Field label="Pack size"><input className="form-inp" value={f.pack_size} onChange={set("pack_size")} disabled={dis} placeholder="e.g. 30 ml" /></Field>}
+        {f.firm_id === "VH" && <Field label="Pack size" hint={packNote || "The number, then g or ml. It starts with the pack size of the last batch of this product."}>
+          <div style={{ display: "flex", gap: 6 }}><input className="form-inp" type="number" min="0" step="any" value={packNum} onChange={(e) => { setPackNum(e.target.value); setPackNote(""); }} disabled={dis} placeholder="30" />
+            <select className="form-inp" style={{ maxWidth: 90 }} value={packUnit} onChange={(e) => { setPackUnit(e.target.value); setPackNote(""); }} disabled={dis}><option value="ml">ml</option><option value="g">g</option></select></div></Field>}
       </div>
       {dup && <div className="mt-dup">⚠️ This batch number is already used for {f.firm_id} {KINDS[f.kind].toLowerCase()} in the same year.</div>}
       <div className="form-grid">
