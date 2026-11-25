@@ -4,7 +4,7 @@ import { useData, run, toast } from "../lib/data";
 import { Modal, Field, Empty, SearchBox, useConfirm } from "../components/ui";
 import { FIRM_COLORS } from "./compliance/common";
 import { stateOf, STATE_LABEL, STATE_COLOR, fmtD, fmtM, monthLabel, monthKey, todayISO } from "../lib/qc";
-import { KINDS, MARKETS, normBatch, groupOf, letterOf, readBatchSheet } from "../lib/batches";
+import { KINDS, MARKETS, normBatch, groupOf, letterOf, readBatchSheet, expiryFor, shelfOf, lastShelfMonths, uspFor } from "../lib/batches";
 
 // Batch Detail: the production batch-coding register (replaces the "Batch Detail" Google Sheet).
 // A batch can be split into products: V-001A is the mother, V-001B and V-001C are its children. A batch entered here
@@ -160,12 +160,31 @@ function BatchForm({ row, draft, all, products, readOnly, onClose, onSaved }) {
     firm_id: row?.firm_id || "", kind: row?.kind || "other", product_name: row?.product_name || "", pack_size: row?.pack_size || "",
     mfg: row?.mfg || (draft ? `${todayISO().slice(0, 7)}-01` : ""), exp: row?.exp || "", mrp: row?.mrp ?? "", usp: row?.usp ?? "", batch_no: row?.batch_no || "",
     batch_size: row?.batch_size ?? "", batch_size_unit: row?.batch_size_unit || "kg", pieces: row?.pieces ?? "", market: row?.market || "", note: row?.note || "", status: row?.status || "made",
+    shelf: row?.shelf_months ?? shelfOf(row?.mfg, row?.exp) ?? "",
   }));
+  const [shelfNote, setShelfNote] = useState("");
   const [kids, setKids] = useState([]);
   const [busy, setBusy] = useState(false);
   const [ask, dialog] = useConfirm();
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
-  const setMfg = (e) => { const v = e.target.value ? `${e.target.value}-01` : ""; setF((x) => ({ ...x, mfg: v, exp: x.exp || (v ? addMonths(v, 23) : "") })); };
+  // expiry follows the shelf life typed in months; typing an expiry month instead works the months out. The months default to the last batch of the same product.
+  const setMfg = (e) => {
+    const v = e.target.value ? `${e.target.value}-01` : ""; let shelf = f.shelf;
+    if (v && !shelf && isNew) { const last = lastShelfMonths(all, f.firm_id, f.product_name, row?.id); shelf = last || 24; setShelfNote(last ? `${shelf} months, as on the last batch of this product` : "24 months: no earlier batch of this product, change it if needed"); }
+    setF((x) => ({ ...x, mfg: v, shelf, exp: v && shelf ? expiryFor(v, shelf) : x.exp }));
+  };
+  const setShelf = (e) => { const v = e.target.value; setShelfNote(""); setF((x) => ({ ...x, shelf: v, exp: x.mfg && v ? expiryFor(x.mfg, v) : x.exp })); };
+  const setExp = (e) => { const v = e.target.value ? `${e.target.value}-01` : ""; setShelfNote(""); setF((x) => ({ ...x, exp: v, shelf: x.mfg && v ? (shelfOf(x.mfg, v) ?? x.shelf) : x.shelf })); };
+  const setProduct = (e) => {
+    const name = e.target.value; const y = { product_name: name };
+    if (isNew || !f.shelf) { const last = lastShelfMonths(all, f.firm_id, name, row?.id); if (last) { y.shelf = last; if (f.mfg) y.exp = expiryFor(f.mfg, last); setShelfNote(`${last} months, as on the last batch of this product`); } }
+    setF((x) => ({ ...x, ...y }));
+  };
+  useEffect(() => { // the firm was chosen after the product was typed
+    if (!isNew || f.shelf || !f.firm_id || !f.product_name) return; const last = lastShelfMonths(all, f.firm_id, f.product_name, null);
+    if (last) { setF((x) => ({ ...x, shelf: last, exp: x.mfg ? expiryFor(x.mfg, last) : x.exp })); setShelfNote(`${last} months, as on the last batch of this product`); }
+  }, [f.firm_id]); // eslint-disable-line
+  const uspCalc = f.firm_id === "VH" ? uspFor(f.mrp, f.pack_size) : null;
   const sib = row ? all.filter((r) => r.id !== row.id && r.firm_id === row.firm_id && r.kind === row.kind && r.group_no === row.group_no && r.series_year === row.series_year) : [];
   const names = useMemo(() => products.filter((p) => p.active && (!f.firm_id || !p.firm_id || p.firm_id === f.firm_id)).map((p) => p.name), [products, f.firm_id]);
   const suggestion = isNew && f.firm_id ? suggestBatchNo(all, f.firm_id, f.kind, f.product_name, f.mfg) : "";
@@ -180,7 +199,7 @@ function BatchForm({ row, draft, all, products, readOnly, onClose, onSaved }) {
     setBusy(true);
     const base = {
       firm_id: f.firm_id, kind: f.kind, product_name: f.product_name.trim(), pack_size: f.pack_size.trim() || null, mfg: f.mfg, exp: f.exp || null,
-      mrp: f.mrp === "" ? null : Number(f.mrp), usp: f.usp === "" ? null : Number(f.usp),
+      mrp: f.mrp === "" ? null : Number(f.mrp), usp: f.firm_id === "VH" ? uspCalc : (f.usp === "" ? null : Number(f.usp)), shelf_months: f.shelf === "" ? null : Math.round(Number(f.shelf)),
       batch_size: f.batch_size === "" ? null : Number(f.batch_size), batch_size_unit: f.batch_size === "" ? null : f.batch_size_unit, pieces: f.pieces === "" ? null : parseInt(f.pieces, 10),
       market: f.market.trim() || null, note: f.note.trim() || null, status: f.status,
     };
@@ -220,17 +239,18 @@ function BatchForm({ row, draft, all, products, readOnly, onClose, onSaved }) {
         <Field label="Firm"><select className="form-inp" value={f.firm_id} onChange={set("firm_id")} disabled={dis}><option value="">Choose…</option><option>VP</option><option>VH</option></select></Field>
         <Field label="Type"><select className="form-inp" value={f.kind} onChange={set("kind")} disabled={dis}>{Object.entries(KINDS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
         <Field label="Manufacturing month"><input className="form-inp" type="month" value={f.mfg ? f.mfg.slice(0, 7) : ""} onChange={setMfg} disabled={dis} /></Field>
-        <Field label="Expiry month"><input className="form-inp" type="month" value={f.exp ? f.exp.slice(0, 7) : ""} onChange={(e) => setF((x) => ({ ...x, exp: e.target.value ? `${e.target.value}-01` : "" }))} disabled={dis} /></Field>
+        <Field label="Expires after (months)" hint={shelfNote || "e.g. 24. The expiry month is worked out from it; it starts with the months of the last batch of this product."}><input className="form-inp" type="number" min="1" max="72" value={f.shelf} onChange={setShelf} disabled={dis} placeholder="24" /></Field>
+        <Field label="Expiry month" hint={f.mfg && f.shelf ? `Mfg ${f.mfg.slice(5, 7)}/${f.mfg.slice(2, 4)} + ${f.shelf} months: best before the month of manufacture counted as the first month.` : "Filled in automatically."}><input className="form-inp" type="month" value={f.exp ? f.exp.slice(0, 7) : ""} onChange={setExp} disabled={dis} /></Field>
       </div>
       <Field label="Product" hint={f.firm_id ? "Pick from the list. A new product must be added by an owner (Products tab)." : "Choose the firm first to see its products."}>
-        <input className="form-inp" list="bd-products" value={f.product_name} onChange={set("product_name")} disabled={dis} placeholder="Type or pick from the list…" />
+        <input className="form-inp" list="bd-products" value={f.product_name} onChange={setProduct} disabled={dis} placeholder="Type or pick from the list…" />
         <datalist id="bd-products">{names.map((x) => <option key={x} value={x} />)}</datalist>
       </Field>
       <div className="form-grid">
         <Field label="Batch number"><input className="form-inp" value={f.batch_no} onChange={set("batch_no")} disabled={dis} />
           {suggestion && !f.batch_no && <button type="button" className="link-btn" onClick={() => setF((x) => ({ ...x, batch_no: suggestion }))}>Use suggested: {suggestion}</button>}</Field>
         <Field label="MRP (₹)"><input className="form-inp" type="number" min="0" step="0.01" value={f.mrp} onChange={set("mrp")} disabled={dis} /></Field>
-        {f.firm_id === "VH" && <Field label="Unit sale price (₹)"><input className="form-inp" type="number" min="0" step="0.01" value={f.usp} onChange={set("usp")} disabled={dis} /></Field>}
+        {f.firm_id === "VH" && <Field label="Unit sale price (₹)" hint="Worked out: MRP ÷ pack size."><input className="form-inp" value={uspCalc != null ? uspCalc.toFixed(2) : ""} disabled placeholder="MRP ÷ pack size" /></Field>}
         {f.firm_id === "VH" && <Field label="Pack size"><input className="form-inp" value={f.pack_size} onChange={set("pack_size")} disabled={dis} placeholder="e.g. 30 ml" /></Field>}
       </div>
       {dup && <div className="mt-dup">⚠️ This batch number is already used for {f.firm_id} {KINDS[f.kind].toLowerCase()} in the same year.</div>}
