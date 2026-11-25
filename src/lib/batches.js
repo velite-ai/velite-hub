@@ -11,7 +11,7 @@ export const groupOf = (b) => String(b || "").trim().replace(/([0-9])[A-Za-z]$/,
 export const letterOf = (b) => { const m = String(b || "").trim().match(/[0-9]([A-Za-z])$/); return m ? m[1].toUpperCase() : null; };
 export const monthKeyOf = (iso) => (iso ? iso.slice(0, 7) : null);
 
-export { expiryFor, shelfOf, lastShelfMonths, uspFor, parsePack, packFromName, lastPack, packText } from "./batchCalc";
+export { expiryFor, shelfOf, lastShelfMonths, uspFor, parsePack, packFromName, lastPack, packText, suggestBatchNo } from "./batchCalc";
 
 // "(1000pc)", "85kg (4250pcs)", "(100kg)3333pcs", "200kg(6666pcs)" -> batch size, unit and pieces; also gives the text with them removed
 export function parseQty(text) {
