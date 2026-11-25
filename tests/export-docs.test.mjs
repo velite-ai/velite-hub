@@ -45,4 +45,17 @@ assert.ok(text(nl).includes("S/B No.: ____________"));
 const nl2 = buildPaper("narcotics", paperContext(air, lines, d, true, [{ kind: "shipping_bill", ref_no: "1455799", doc_date: "2026-10-26", facts: {} }]));
 assert.ok(text(nl2).includes("S/B No.: 1455799") && text(nl2).includes("Dt.: 26.10.2026"));
 assert.ok(text(nl2).includes("Sangeeta Verma"));
+// Myanmar: letter of authority (wording of the firm's own letter) and ingredient list from the Regulatory formula
+const my = { ...d, parties: [{ ...d.parties[0], name: "Best Appearance Confidence Co., Ltd.", address: "73 B, 8th Street, Lanmadaw Township, Yangon, Myanmar 11131", authority: { representative: "Mr. Wai Lynn Htun", authority: "Food and Drug Administration, Myanmar", trademarks: "CutaPro, Cutacare", valid_from: "2026-05", valid_to: "2028-04" } }], products: [{ id: "pr", reg_product_id: "rp" }] };
+const mylines = [{ ...lines[0], product_id: "pr", name: "CutaPro Antipigment Serum 30 ml" }, { ...lines[0], product_id: "pr", name: "Cutacare HA serum 30 ml" }];
+const loa = buildPaper("loa", paperContext(s, mylines, my, true));
+assert.ok(text(loa).includes("Authorization Letter") && text(loa).includes('under the trademarks \\"CutaPro\\" and \\"Cutacare\\"'));
+assert.ok(text(loa).includes("1. CutaPro Antipigment Serum 30 ml") && text(loa).includes("2. Cutacare HA serum 30 ml"));
+assert.ok(text(loa).includes("Mr. Wai Lynn Htun in order to contact the Food and Drug Administration, Myanmar"));
+assert.ok(text(loa).includes("valid from May, 2026 to April, 2028") && text(loa).includes("Sangeeta Verma"));
+assert.equal(kindOfCountryDoc("Letter of authority"), "loa");
+const il = buildPaper("ingredients", paperContext(s, [mylines[0]], my, true, [], { rp: [{ label: "Water", inci_name: "Aqua", pct: 80 }, { label: "Glycerin", pct: 15 }, { label: "Niacinamide", pct: 5 }] }));
+assert.ok(text(il).includes("INGREDIENT LIST WITH PERCENTAGE COMPOSITION") && text(il).includes("Aqua") && text(il).includes('"Total","100"'));
+assert.ok(text(buildPaper("ingredients", paperContext(s, [mylines[0]], my, true, [], {}))).includes("formula not available"));
+assert.equal(kindOfCountryDoc("Ingredient list with percentages"), "ingredients");
 console.log("export document tests passed");

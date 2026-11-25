@@ -261,6 +261,7 @@ function PartyForm({ row, countries, onClose, onSaved }) {
   const { isOwner } = useData(); const [ask, dialog] = useConfirm();
   const [f, setF] = useState(() => ({ name: row?.name || "", country: row?.country || "", roles: row?.roles || ["buyer", "consignee"], address: row?.address || "", contact_person: row?.contact_person || "", phone: row?.phone || "", email: row?.email || "",
     currency: row?.currency || "INR", usual_firm: row?.usual_firm || "", payment_terms: row?.payment_terms || "", delivery_terms: row?.delivery_terms || "", entry_point: row?.entry_point || "", notes: row?.notes || "" }));
+  const [au, setAu] = useState(() => ({ representative: "", authority: "", trademarks: "", valid_from: "", valid_to: "", ...(row?.authority || {}) }));
   const [ids, setIds] = useState(() => { const e = Object.entries(row?.ids || {}); return e.length ? e.map(([k, v]) => ({ k, v })) : []; });
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.value }));
@@ -271,7 +272,7 @@ function PartyForm({ row, countries, onClose, onSaved }) {
     if (!f.name.trim() || !f.country.trim()) { toast("Enter the party name and country", "err"); return; }
     setBusy(true);
     const body = { name: f.name.trim(), country: f.country.trim(), roles: f.roles, address: txt(f.address), contact_person: txt(f.contact_person), phone: txt(f.phone), email: txt(f.email), currency: f.currency, usual_firm: f.usual_firm || null,
-      payment_terms: txt(f.payment_terms), delivery_terms: txt(f.delivery_terms), entry_point: txt(f.entry_point), notes: txt(f.notes), ids: Object.fromEntries(ids.filter((x) => x.k.trim() && x.v.trim()).map((x) => [x.k.trim(), x.v.trim()])) };
+      payment_terms: txt(f.payment_terms), delivery_terms: txt(f.delivery_terms), entry_point: txt(f.entry_point), notes: txt(f.notes), ids: Object.fromEntries(ids.filter((x) => x.k.trim() && x.v.trim()).map((x) => [x.k.trim(), x.v.trim()])), authority: Object.fromEntries(Object.entries(au).map(([k, v]) => [k, String(v).trim()]).filter(([, v]) => v)) };
     const r = row ? await run(supabase.from("exp_parties").update(body).eq("id", row.id), "Party saved") : await run(supabase.from("exp_parties").insert(body), "Party added");
     setBusy(false); if (r.ok) { onSaved(); onClose(); }
   };
@@ -307,6 +308,16 @@ function PartyForm({ row, countries, onClose, onSaved }) {
       <div className="ex-grid" style={{ marginTop: 8 }}>
         <Field label="Usual payment terms"><input className="form-inp" value={f.payment_terms} onChange={set("payment_terms")} /></Field>
         <Field label="Usual delivery terms"><input className="form-inp" value={f.delivery_terms} onChange={set("delivery_terms")} /></Field>
+      </div>
+      <div className="form-label" style={{ marginTop: 8 }}>Letter of authority <small className="small-muted">(only for countries that need one, such as Myanmar)</small></div>
+      <div className="ex-grid">
+        <Field label="Authorised person (named on the letter)"><input className="form-inp" value={au.representative} onChange={(e) => setAu((x) => ({ ...x, representative: e.target.value }))} placeholder="Mr. Wai Lynn Htun" /></Field>
+        <Field label="Authority they deal with"><input className="form-inp" value={au.authority} onChange={(e) => setAu((x) => ({ ...x, authority: e.target.value }))} placeholder="Food and Drug Administration, Myanmar" /></Field>
+        <Field label="Trademark(s)" hint="Separate with commas"><input className="form-inp" value={au.trademarks} onChange={(e) => setAu((x) => ({ ...x, trademarks: e.target.value }))} placeholder="CutaPro, Cutacare" /></Field>
+        <div className="ex-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
+          <Field label="Valid from"><input className="form-inp" type="month" value={au.valid_from} onChange={(e) => setAu((x) => ({ ...x, valid_from: e.target.value }))} /></Field>
+          <Field label="Valid to"><input className="form-inp" type="month" value={au.valid_to} onChange={(e) => setAu((x) => ({ ...x, valid_to: e.target.value }))} /></Field>
+        </div>
       </div>
       <Field label="Notes"><textarea className="form-inp" rows={2} value={f.notes} onChange={set("notes")} /></Field>
       {dialog}

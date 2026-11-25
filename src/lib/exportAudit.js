@@ -154,12 +154,33 @@ export function auditShipment(c) {
   });
 
   // 3 · the papers against the shipment
-  const ctx = paperContext(s, lines, { firms: [firm].filter(Boolean), parties: [party, c.notify, c.brandOwner].filter(Boolean), agents: [c.transporter, c.agent].filter(Boolean) }, true, c.attachments || []);
+  const ctx = paperContext(s, lines, { firms: [firm].filter(Boolean), parties: [party, c.notify, c.brandOwner].filter(Boolean), agents: [c.transporter, c.agent].filter(Boolean), products: c.products || [] }, true, c.attachments || [], c.formulas || {});
   const papers = Object.fromEntries(KINDS.map(([k]) => [k, buildPaper(k, ctx)]));
   group("Papers", "all papers show the same numbers as the shipment", () => { crossCheckPapers(papers, s, lines, party, firm).forEach((i) => add(i.level, i.area, i.text)); });
   const stale = []; KINDS.forEach(([k, label]) => { const sv = saved[k]; if (sv && papers[k] && sv.input_hash !== fingerprint(papers[k])) stale.push(`${label} v${sv.version}`); });
   if (stale.length) add("warn", "Papers", `The saved copy of ${stale.join(", ")} no longer matches the shipment (it was changed afterwards). Print again so the saved copy is current.`);
   else if (Object.keys(saved).length) passed.push("Papers: saved copies match the shipment");
+
+  // letter of authority and ingredient list (Myanmar-type requirements)
+  const needs = (re) => (country?.docs || []).some((d) => re.test(d));
+  if (needs(/authori[sz]ation|letter of authority/i) && party) {
+    const au = party.authority || {};
+    if (!au.representative) add("error", "Letter of authority", `${party.name}: the authorised person is not entered (Parties → Letter of authority).`);
+    if (!au.trademarks) add("warn", "Letter of authority", `${party.name}: the trademark(s) are not entered, so the letter will not name them.`);
+    if (!au.valid_to) add("warn", "Letter of authority", `${party.name}: the letter's validity is not entered.`);
+    else if (s.invoice_date && (au.valid_to < s.invoice_date.slice(0, 7) || (au.valid_from && au.valid_from > s.invoice_date.slice(0, 7)))) add("error", "Letter of authority", `The letter's validity (${au.valid_from || "…"} to ${au.valid_to}) does not cover the invoice date (${s.invoice_date}). Sign a new letter.`);
+  }
+  if (needs(/ingredient/i)) {
+    lines.forEach((l, i) => {
+      const prod = (c.products || []).find((p) => p.id === l.product_id); const n = `Line ${i + 1} ${l.name}`;
+      if (!prod?.reg_product_id) { add("error", "Ingredient list", `${n}: not linked to a Regulatory product, so its ingredient list cannot be made (Products → Linked Regulatory product).`); return; }
+      const fl = c.formulas?.[prod.reg_product_id];
+      if (!fl) { add("warn", "Ingredient list", `${n}: the formula could not be loaded (it needs Regulatory access).`); return; }
+      if (!fl.length) { add("error", "Ingredient list", `${n}: the Regulatory product has no formula yet.`); return; }
+      const missing = fl.filter((x) => (x.pct == null || x.pct === "") && !x.pct_text); if (missing.length) add("warn", "Ingredient list", `${n}: no percentage for ${missing.length} of ${fl.length} ingredients.`);
+      else { const sum = fl.reduce((a, x) => a + (x.pct != null && x.pct !== "" ? Number(x.pct) : 0), 0); if (!fl.some((x) => /q\.?s/i.test(x.pct_text || "")) && Math.abs(sum - 100) > 1.5) add("warn", "Ingredient list", `${n}: the percentages add up to ${Math.round(sum * 100) / 100}, not 100.`); }
+    });
+  }
 
   // 4 · papers the country needs
   const missing = [];
