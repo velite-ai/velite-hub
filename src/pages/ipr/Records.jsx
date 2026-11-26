@@ -117,6 +117,7 @@ export function ThirdParty({ canEdit, openThird }) {
   const undertaking = (b) => b.undertaking_name
     ? <><Pill tone="green">Letter of Undertaking Available</Pill><br /><button className="ipill green linkish" onClick={() => downloadStored("hub_ipr_third_party", b.id, "undertaking_data", "undertaking_name")}>Download</button>{b.undertaking_date && <span className="small-muted"> {fmtDate(b.undertaking_date)}</span>}</>
     : b.undertaking_date ? <><Pill tone="green">Letter of Undertaking Available</Pill><br /><span className="small-muted">{fmtDate(b.undertaking_date)} (no file)</span></>
+    : !b.undertakingRequired ? <Pill tone="cyan">Not required (registered)</Pill>
     : <Pill tone={b.group === "Not registered" ? "red" : "amber"}>Letter of Undertaking Not Available</Pill>;
   return (
     <div className="ipanel">
