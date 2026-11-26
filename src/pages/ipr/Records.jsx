@@ -3,6 +3,7 @@ import { supabase } from "../../supabase";
 import { useData, run, toast } from "../../lib/data";
 import { fmtDate, todayISO } from "../../lib/dates";
 import { Modal, Field, Empty, useConfirm } from "../../components/ui";
+import { groupByParty, GROUP_ORDER, GROUP_TONE } from "../../lib/thirdParty";
 import { NOTICE_TYPES, PRIORITIES, DOC_TYPES, PROOF_CHANNELS, RISKS, Pill, prioClass, useIprOptions, splitList, fileToDataUrl, downloadStored } from "./shared";
 
 const opt = (list, v) => (list.includes(v) || !v ? list : [v, ...list]);
@@ -101,36 +102,67 @@ export function NoticeModal({ n, canEdit, onClose }) {
 const TP_DEFAULT_RESP = "Third party has undertaken that if any trademark/IPR issue arises, it is solely their responsibility.";
 
 export function ThirdParty({ canEdit, openThird }) {
-  const { iprThird } = useData();
-  const rows = iprThird.rows.filter((t) => !t.deleted_at).sort((a, b) => String(a.client || "").localeCompare(String(b.client || "")));
-  const undertaking = (t) => {
-    if (t.undertaking_name) return <><button className="ipill green linkish" onClick={() => downloadStored("hub_ipr_third_party", t.id, "undertaking_data", "undertaking_name")}>Download</button><br /><span className="small-muted">{t.undertaking_name}</span></>;
-    if (t.status === "Not Applied") return <Pill tone="red">Required</Pill>;
-    return <Pill tone="amber">Not uploaded</Pill>;
-  };
+  const { iprThird, products, canBatch } = useData();
+  const [q, setQ] = useState("");
+  const [only, setOnly] = useState("");
+  const rows = iprThird.rows.filter((t) => !t.deleted_at);
+  const names = canBatch ? (products.rows || []).map((p) => p.name) : null;
+  const all = groupByParty(rows, names);
+  const needle = q.trim().toLowerCase();
+  const parties = all.filter((p) => (!needle || p.client.toLowerCase().includes(needle) || p.brands.some((b) => String(b.brand).toLowerCase().includes(needle)))
+    && (!only || (only === "ut-no" ? p.undertaking.notAvailable > 0 : only === "ut-yes" ? p.undertaking.available > 0 : (p.status[only] || 0) > 0)));
+  const total = (g) => all.reduce((n, p) => n + (p.status[g] || 0), 0);
+  const utYes = all.reduce((n, p) => n + p.undertaking.available, 0), utNo = all.reduce((n, p) => n + p.undertaking.notAvailable, 0);
+  const chip = (k, label, n, tone) => <button key={k} className={`ipill ${tone || ""} linkish`} style={{ outline: only === k ? "2px solid #2563eb" : "none" }} onClick={() => setOnly(only === k ? "" : k)}>{label} {n}</button>;
+  const undertaking = (b) => b.undertaking_name
+    ? <><Pill tone="green">Letter of Undertaking Available</Pill><br /><button className="ipill green linkish" onClick={() => downloadStored("hub_ipr_third_party", b.id, "undertaking_data", "undertaking_name")}>Download</button>{b.undertaking_date && <span className="small-muted"> {fmtDate(b.undertaking_date)}</span>}</>
+    : b.undertaking_date ? <><Pill tone="green">Letter of Undertaking Available</Pill><br /><span className="small-muted">{fmtDate(b.undertaking_date)} (no file)</span></>
+    : <Pill tone={b.group === "Not registered" ? "red" : "amber"}>Letter of Undertaking Not Available</Pill>;
   return (
     <div className="ipanel">
-      <div className="ipanel-head"><div><h3>Third-party Client Brand Register</h3><p>Keep client-owned brand records separate from Velite-owned trademarks, including responsibility undertaking where trademark registration is not applied.</p></div>
+      <div className="ipanel-head"><div><h3>Third-party Client Brand Register — party wise</h3><p>Status as on {fmtDate(todayISO())}. Each party shows its brands, the Velite products made under them and the undertaking position.</p></div>
         {canEdit && <button className="add-btn" onClick={() => openThird({})}>+ Add Client Brand</button>}</div>
-      <div className="table-wrap">
-        <table className="tbl itbl">
-          <thead><tr><th>Client</th><th>Brand</th><th>Products</th><th>Category</th><th>Status</th><th>Application</th><th>Undertaking</th><th>Responsibility</th><th>Action</th></tr></thead>
-          <tbody>
-            {rows.length === 0 && <tr><td colSpan={9}><Empty>No third-party client brand records added yet.</Empty></td></tr>}
-            {rows.map((t) => (
-              <tr key={t.id}>
-                <td><strong>{t.client}</strong><br /><span className="small-muted">{t.contact}</span></td><td>{t.brand}</td>
-                <td>{(t.products || []).map((p) => <Pill key={p} tone="cyan">{p}</Pill>)}</td><td><Pill>{t.category}</Pill></td>
-                <td><Pill tone={t.status === "Registered" ? "green" : t.status === "Applied / Filed" ? "blue" : "red"}>{t.status}</Pill></td>
-                <td>{t.app_no || "Not available"}<br /><span className="small-muted">{t.class_no ? `Class ${t.class_no}` : ""}</span></td>
-                <td>{undertaking(t)}{t.undertaking_date && <><br /><span className="small-muted">{fmtDate(t.undertaking_date)}</span></>}</td>
-                <td className="pre">{t.responsibility}</td>
-                <td><button className="action-btn" onClick={() => openThird(t)}>{canEdit ? "Edit" : "View"}</button></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+        <input className="form-inp" style={{ maxWidth: 260 }} placeholder="Search party or brand" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Pill>{all.length} parties</Pill><Pill>{rows.length} brands</Pill>
+        {GROUP_ORDER.filter((g) => total(g)).map((g) => chip(g, g, total(g), GROUP_TONE[g]))}
+        {chip("ut-yes", "Undertaking available", utYes, "green")}{chip("ut-no", "Undertaking not available", utNo, "amber")}
       </div>
+      {parties.length === 0 && <Empty>No third-party client brand records match.</Empty>}
+      {parties.map((p) => (
+        <div key={p.client} className="ipanel" style={{ marginBottom: 14, border: "1px solid #e4e7ec" }}>
+          <div className="ipanel-head" style={{ marginBottom: 6 }}>
+            <div><h3 style={{ marginBottom: 2 }}>{p.client}</h3>{p.contact && <p>{p.contact}</p>}</div>
+            <div style={{ textAlign: "right" }}>
+              <Pill tone="cyan">{p.brands.length} brand{p.brands.length === 1 ? "" : "s"}</Pill>
+              {GROUP_ORDER.filter((g) => p.status[g]).map((g) => <Pill key={g} tone={GROUP_TONE[g]}>{g} {p.status[g]}</Pill>)}
+              {p.undertaking.available > 0 && <Pill tone="green">Undertaking available {p.undertaking.available}</Pill>}
+              {p.undertaking.notAvailable > 0 && <Pill tone="amber">Undertaking not available {p.undertaking.notAvailable}</Pill>}
+            </div>
+          </div>
+          <div style={{ marginBottom: 8 }}><strong>{names ? "Products made by Velite" : "Products"}: {p.products.length}</strong>{" "}
+            {p.products.length ? p.products.map((x) => <Pill key={x} tone="cyan">{x}</Pill>) : <span className="small-muted">{names ? "none found under these brand names" : "not listed (Batch Detail access is needed to match products)"}</span>}</div>
+          <div className="table-wrap">
+            <table className="tbl itbl">
+              <thead><tr><th>Brand</th><th>Velite products</th><th>Category</th><th>Status</th><th>Application</th><th>Undertaking</th><th>Responsibility</th><th>Action</th></tr></thead>
+              <tbody>
+                {p.brands.map((t) => (
+                  <tr key={t.id}>
+                    <td><strong>{t.brand}</strong></td>
+                    <td>{t.velite.length ? <><strong>{t.velite.length}</strong>: {t.velite.map((x) => <Pill key={x} tone="cyan">{x}</Pill>)}</> : <span className="small-muted">{names ? "0" : "—"}</span>}</td>
+                    <td><Pill>{t.category}</Pill></td>
+                    <td><Pill tone={GROUP_TONE[t.group]}>{t.status}</Pill></td>
+                    <td>{t.app_no || "Not available"}<br /><span className="small-muted">{t.class_no ? `Class ${t.class_no}` : ""}</span></td>
+                    <td>{undertaking(t)}</td>
+                    <td className="pre">{t.responsibility}</td>
+                    <td><button className="action-btn" onClick={() => openThird(t)}>{canEdit ? "Edit" : "View"}</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
