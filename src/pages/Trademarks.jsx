@@ -25,7 +25,7 @@ const VIEWS = [
 
 export default function Trademarks() {
   const d = useData();
-  const canEdit = d.me.role === "owner" || d.me.role === "manager";
+  const canEdit = d.canIpr; // owners, managers and members an owner ticked in Admin all have full rights here
   const [view, setView] = useState(() => sessionStorage.getItem("hub-ipr-view") || "dashboard");
   const [modal, setModal] = useState(null); // {type, rec}
   const go = (v) => { setView(v); sessionStorage.setItem("hub-ipr-view", v); window.scrollTo(0, 0); };
@@ -69,7 +69,6 @@ export default function Trademarks() {
       {modal?.type === "third" && <ThirdPartyModal t={modal.rec.id ? modal.rec : null} canEdit={canEdit} onClose={close} />}
       {modal?.type === "doc" && <DocModal x={modal.rec} canEdit={canEdit} onClose={close} />}
       {modal?.type === "matter" && <MatterModal m={modal.rec} canEdit={canEdit} onClose={close} />}
-      {!canEdit && <p className="form-hint" style={{ marginTop: 8 }}>You can view everything here. Owners and managers can add or edit records.</p>}
     </div>
   );
 }
