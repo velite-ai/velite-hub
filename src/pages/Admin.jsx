@@ -44,6 +44,10 @@ function Users() {
     const r = await run(supabase.rpc("hub_admin_set_export", { p_user: p.id, p_on: !p.export_access }), "Export access updated");
     if (r.ok) profiles.reload();
   };
+  const setIpr = async (p) => {
+    const r = await run(supabase.rpc("hub_admin_set_ipr", { p_user: p.id, p_on: !p.ipr_access }), "Trademarks access updated");
+    if (r.ok) profiles.reload();
+  };
   const setBatch = async (p) => {
     const r = await run(supabase.rpc("hub_admin_set_batch", { p_user: p.id, p_on: !p.batch_access }), "Batch Detail access updated");
     if (r.ok) profiles.reload();
@@ -75,6 +79,7 @@ function Users() {
         <div><span className="ac-chip ac-all">Opens everything</span> owners and managers see all of Materials, QC Release and Batch Detail. Nothing to tick.</div>
         <div><b>Materials:</b> tick Raw and/or Packing to show the list. No tick, no Materials tab.</div>
         <div><b>QC Release:</b> tick <i>Allow QC Release</i> for QC staff. They see, add and edit QC records. They also see Batch Detail, but only to look.</div>
+        <div><b>Trademarks:</b> tick <i>Allow Trademarks</i> for the people who look after trademark filings, notices and brand undertakings. They can see, add and change records. Owners and managers always have it.</div>
         <div><b>Export:</b> tick <i>Allow Export</i> only for the person who prepares export papers. It shows buyers, prices and shipments. Managers do not get it automatically.</div>
         <div><b>Regulatory:</b> tick <i>Allow Regulatory</i> for the people who prepare MSDS. They see formulas, which are confidential, so tick it only where needed. Only owners can approve an MSDS.</div>
         <div><b>Batch Detail:</b> tick <i>Allow adding and editing</i> for production staff who enter batches. A person with no tick in QC Release or Batch Detail does not see the Batch Detail tab.</div>
@@ -83,7 +88,7 @@ function Users() {
       <div className="day-block-title" style={{ marginTop: 18 }}>Team</div>
       <div className="table-wrap">
         <table className="tbl">
-          <thead><tr><th>Name</th><th>Email / mobile</th><th>Role</th><th>Materials<small className="ac-th">tick the lists they may open</small></th><th>QC Release<small className="ac-th">test results of materials, bulk and products</small></th><th>Batch Detail<small className="ac-th">production batches</small></th><th>Regulatory<small className="ac-th">MSDS, ingredients, formulas</small></th><th>Export<small className="ac-th">parties, prices, export papers</small></th><th>Status</th><th>Approved</th><th></th></tr></thead>
+          <thead><tr><th>Name</th><th>Email / mobile</th><th>Role</th><th>Materials<small className="ac-th">tick the lists they may open</small></th><th>QC Release<small className="ac-th">test results of materials, bulk and products</small></th><th>Batch Detail<small className="ac-th">production batches</small></th><th>Regulatory<small className="ac-th">MSDS, ingredients, formulas</small></th><th>Trademarks<small className="ac-th">marks, notices, undertakings</small></th><th>Export<small className="ac-th">parties, prices, export papers</small></th><th>Status</th><th>Approved</th><th></th></tr></thead>
           <tbody>
             {others.map((p) => (
               <tr key={p.id} className={p.status === "disabled" ? "row-off" : ""}>
@@ -129,6 +134,15 @@ function Users() {
                       {p.reg_access ? <span className="ac-chip ac-on">Can see and edit</span> : <span className="ac-chip ac-off">Cannot open</span>}
                       <label style={{ fontSize: 13, display: "block" }} title="Formulas are confidential. Tick only for people who prepare MSDS. Only owners can approve an MSDS.">
                         <input type="checkbox" checked={!!p.reg_access} onChange={() => setReg(p)} /> Allow Regulatory
+                      </label>
+                    </>)}
+                </td>
+                <td>
+                  {p.role === "owner" || p.role === "manager" ? <span className="ac-chip ac-all">Opens everything</span> : (
+                    <>
+                      {p.ipr_access ? <span className="ac-chip ac-on">Can see and edit</span> : <span className="ac-chip ac-off">Cannot open</span>}
+                      <label style={{ fontSize: 13, display: "block" }} title="Trademark records, notices and brand undertakings. A person with this tick can add and change records; only owners restore deleted ones.">
+                        <input type="checkbox" checked={!!p.ipr_access} onChange={() => setIpr(p)} /> Allow Trademarks
                       </label>
                     </>)}
                 </td>

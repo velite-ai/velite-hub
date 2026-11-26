@@ -112,7 +112,7 @@ const TABS = [
   { k: "regulatory", label: "📋 Regulatory", regTab: true },
   { k: "export", label: "🚢 Export", expTab: true },
   { k: "compliance", label: "🛡️ Compliance", staff: true },
-  { k: "ipr", label: "⚖️ Trademarks", staff: true },
+  { k: "ipr", label: "⚖️ Trademarks", iprTab: true },
   { k: "compass", label: "🧭 Business Compass", owner: true },
   { k: "admin", label: "⚙️ Admin", owner: true },
 ];
@@ -126,8 +126,8 @@ function useHashTab(allowed) {
 }
 
 function Shell({ onSignOut, reloadMe }) {
-  const { me, isOwner, isStaff, matLists, canQc, canBatch, canReg, canExport, tasks, profiles, cmpItems } = useData();
-  const tabs = TABS.filter((t) => (!t.owner || isOwner) && (!t.staff || isStaff) && (!t.mat || matLists.length > 0) && (!t.qcTab || canQc) && (!t.batchTab || canBatch) && (!t.regTab || canReg) && (!t.expTab || canExport));
+  const { me, isOwner, isStaff, matLists, canQc, canBatch, canReg, canIpr, canExport, tasks, profiles, cmpItems } = useData();
+  const tabs = TABS.filter((t) => (!t.owner || isOwner) && (!t.staff || isStaff) && (!t.iprTab || canIpr) && (!t.mat || matLists.length > 0) && (!t.qcTab || canQc) && (!t.batchTab || canBatch) && (!t.regTab || canReg) && (!t.expTab || canExport));
   const [tab, go] = useHashTab(tabs.map((t) => t.k));
   const [acct, setAcct] = useState(false);
   const alerts = myAlerts(tasks, me) + cmpAlerts(cmpItems, me);
@@ -165,7 +165,7 @@ function Shell({ onSignOut, reloadMe }) {
         {tab === "export" && canExport && <Export />}
         {tab === "tasks" && <Tasks />}
         {tab === "compliance" && isStaff && <Compliance />}
-        {tab === "ipr" && isStaff && <Trademarks />}
+        {tab === "ipr" && canIpr && <Trademarks />}
         {tab === "compass" && isOwner && <Compass />}
         {tab === "admin" && isOwner && <Admin />}
       </div>
