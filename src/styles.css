@@ -993,3 +993,8 @@ button.qc-row{cursor:pointer;} button.qc-row:hover{background:#f9fafb;}
   #exp-print .ep-page{box-shadow:none;width:auto;padding:0;min-height:0;margin:0;}
 }
 .ex-mailbody{white-space:pre-wrap;font:14px/1.5 Arial,Helvetica,sans-serif;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-top:8px;}
+
+/* Materials: folded "PO raised" block */
+.mt-fold-h{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;font:inherit;font-weight:700;color:#1e40af;cursor:pointer;margin-bottom:8px;}
+.mt-fold-h:hover{background:#dbeafe;} .mt-fold-arrow{font-size:14px;width:14px;display:inline-block;}
+.mt-fold-late{background:#fee2e2;color:#b91c1c;border-radius:10px;padding:1px 8px;font-size:12px;} .mt-fold-hint{margin-left:auto;font-weight:400;font-size:12.5px;color:#475467;}

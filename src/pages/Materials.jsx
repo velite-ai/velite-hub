@@ -46,6 +46,9 @@ export default function Materials() {
   const [list, setList] = useState(() => { const s = localStorage.getItem("hub-mat-list"); return matLists.includes(s) ? s : matLists[0] || "rm"; });
   const [view, setView] = useState("list");
   const [stage, setStage] = useState("open");
+  // the PO raised items are folded away by default (they only wait for the goods); one click opens them, the choice is remembered
+  const [raisedOpen, setRaisedOpenRaw] = useState(() => { try { return localStorage.getItem("mt-raised-open") === "1"; } catch { return false; } });
+  const setRaisedOpen = (v) => { setRaisedOpenRaw(v); try { localStorage.setItem("mt-raised-open", v ? "1" : "0"); } catch { /* ignore */ } };
   const [firm, setFirm] = useState("");
   const [q, setQ] = useState("");
   const [editing, setEditing] = useState(null);
@@ -109,12 +112,13 @@ export default function Materials() {
     onBack: () => setStatus(m, m.status === "received" ? "ordered" : "pending"),
     onEdit: () => setEditing(m), onDelete: () => del(m), onLink: () => setLinking(m),
   });
-  const groups = [
+  const mkGroups = (shown) => [
     ["🔴 Delivery late", shown.filter(isLate)],
     ["🚨 Urgent", shown.filter((m) => !isLate(m) && m.urgent)],
     ["🟠 Needed within 7 days", shown.filter((m) => !isLate(m) && !m.urgent && m.required_by && daysUntil(m.required_by) <= 7)],
     ["🔵 Later / no date", shown.filter((m) => !isLate(m) && !m.urgent && !(m.required_by && daysUntil(m.required_by) <= 7))],
   ];
+  const groups = mkGroups(shown);
 
   return (
     <div className="section mt">
@@ -181,9 +185,13 @@ export default function Materials() {
                   .sort(s === "received" ? (a, b) => ((a.received_at || "") < (b.received_at || "") ? 1 : -1) : sortOpen).slice(0, s === "received" ? 15 : 200);
                 return (
                   <div key={s} className="tk-col">
-                    <div className="tk-col-h" style={{ borderTopColor: ST[s].c }}>{ST[s].label} <span>{s === "received" ? stats.arrived.length + " this month" : items.length}</span></div>
+                    {(() => { const fold = s === "ordered" && stage === "open"; return (<>
+                    <div className="tk-col-h" style={{ borderTopColor: ST[s].c, cursor: fold ? "pointer" : undefined }} onClick={fold ? () => setRaisedOpen(!raisedOpen) : undefined}>
+                      {fold && <span className="mt-fold-arrow">{raisedOpen ? "▾" : "▸"}</span>} {ST[s].label} <span>{s === "received" ? stats.arrived.length + " this month" : items.length}</span></div>
+                    {fold && !raisedOpen ? <div className="tk-col-empty" style={{ cursor: "pointer" }} onClick={() => setRaisedOpen(true)}>{items.length} PO raised, folded. Click to open{items.filter(isLate).length ? ` (🔴 ${items.filter(isLate).length} late)` : ""}</div> : <>
                     {items.length === 0 && <div className="tk-col-empty">Nothing here</div>}
-                    {items.map((m) => <MaterialCard key={m.id} {...rowProps(m)} compact />)}
+                    {items.map((m) => <MaterialCard key={m.id} {...rowProps(m)} compact />)}</>}
+                    </>); })()}
                   </div>
                 );
               })}
@@ -193,7 +201,30 @@ export default function Materials() {
               {shown.length === 0 && <Empty>{stage === "open" ? "Nothing open — all requirements are covered ✅" : "Nothing here."}</Empty>}
               {stage === "received"
                 ? shown.map((m) => <MaterialCard key={m.id} {...rowProps(m)} />)
-                : groups.map(([label, items]) => items.length > 0 && (
+                : stage === "open" ? (
+                  <>
+                    {mkGroups(shown.filter((m) => m.status !== "ordered")).map(([label, items]) => items.length > 0 && (
+                      <div key={label} className="tk-group"><div className="tk-group-h">{label} <span>{items.length}</span></div>
+                        {items.map((m) => <MaterialCard key={m.id} {...rowProps(m)} />)}</div>
+                    ))}
+                    {(() => {
+                      const raised = shown.filter((m) => m.status === "ordered"); if (!raised.length) return null; const late = raised.filter(isLate).length;
+                      return (
+                        <div className="tk-group mt-fold">
+                          <button className="mt-fold-h" onClick={() => setRaisedOpen(!raisedOpen)} aria-expanded={raisedOpen}>
+                            <span className="mt-fold-arrow">{raisedOpen ? "▾" : "▸"}</span> 📦 PO raised, goods not arrived yet <span className="fcount">{raised.length}</span>
+                            {late > 0 && <span className="mt-fold-late">🔴 {late} late</span>}
+                            <span className="mt-fold-hint">{raisedOpen ? "click to fold" : "click to open"}</span>
+                          </button>
+                          {raisedOpen && mkGroups(raised).map(([label, items]) => items.length > 0 && (
+                            <div key={label} className="tk-group"><div className="tk-group-h">{label} <span>{items.length}</span></div>
+                              {items.map((m) => <MaterialCard key={m.id} {...rowProps(m)} />)}</div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </>
+                ) : groups.map(([label, items]) => items.length > 0 && (
                   <div key={label} className="tk-group"><div className="tk-group-h">{label} <span>{items.length}</span></div>
                     {items.map((m) => <MaterialCard key={m.id} {...rowProps(m)} />)}</div>
                 ))}
