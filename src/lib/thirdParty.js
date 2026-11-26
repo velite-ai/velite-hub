@@ -40,15 +40,16 @@ export function groupByParty(rows, productNames) {
   for (const t of rows || []) {
     const name = String(t.client || "").trim() || "(no client name)";
     const k = name.toUpperCase().replace(/\s+/g, " ");
-    if (!map.has(k)) map.set(k, { client: name, contact: "", brands: [], status: {}, undertaking: { available: 0, notAvailable: 0 }, products: [] });
+    if (!map.has(k)) map.set(k, { client: name, contact: "", brands: [], status: {}, undertaking: { available: 0, notAvailable: 0, notRequired: 0 }, products: [] });
     const p = map.get(k);
     if (!p.contact && t.contact) p.contact = t.contact;
     const g = statusGroup(t.status);
     const found = known ? productsForBrand(t.brand, productNames) : (t.products || []).filter((x) => squash(x) !== "VELITE");
     const has = hasUndertaking(t);
-    p.brands.push({ ...t, group: g, velite: found, hasUndertaking: has });
+    p.brands.push({ ...t, group: g, velite: found, hasUndertaking: has, undertakingRequired: g !== "Registered" });
     p.status[g] = (p.status[g] || 0) + 1;
-    p.undertaking[has ? "available" : "notAvailable"]++;
+    // a registered brand needs no letter of undertaking
+    p.undertaking[has ? "available" : g === "Registered" ? "notRequired" : "notAvailable"]++;
     for (const x of found) if (!p.products.some((y) => key(y) === key(x))) p.products.push(x);
   }
   const out = [...map.values()];

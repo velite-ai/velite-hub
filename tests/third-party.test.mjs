@@ -21,8 +21,10 @@ assert.equal(g.length, 2);
 assert.equal(g[0].client, "Dermaprime");
 assert.equal(g[0].brands.length, 2);
 assert.equal(g[0].status.Opposed, 2);
-assert.deepEqual(g[0].undertaking, { available: 1, notAvailable: 1 });
+assert.deepEqual(g[0].undertaking, { available: 1, notAvailable: 1, notRequired: 0 });
 assert.equal(g[0].products.length, 2);
+assert.deepEqual(g[1].undertaking, { available: 1, notAvailable: 0, notRequired: 0 });
+assert.deepEqual(groupByParty([{ client: "X", brand: "B", status: "Registered" }], names)[0].undertaking, { available: 0, notAvailable: 0, notRequired: 1 });
 assert.equal(g[1].products.length, 1);
 // no access to products: stored list is used, the "VELITE" placeholder is not a product
 assert.equal(groupByParty(rows, null)[0].products.length, 0);
