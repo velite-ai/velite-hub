@@ -58,6 +58,7 @@ export function DataProvider({ me, children }) {
   const canBatch = canBatchEdit || canQc;               // QC staff can look at it (read only)
   const batches = useTable("hub_batches", { enabled: canBatch, order: "entered_on", ascending: false });
   const products = useTable("hub_products", { enabled: canBatch, order: "name", ascending: true });
+  const canIpr = isStaff || !!me.ipr_access;                // Trademarks: owners, managers and members an owner ticked in Admin
   const canReg = isStaff || !!me.reg_access;                // Regulatory: owners, managers and people ticked in Admin
   const regIngredients = useTable("reg_ingredients", { enabled: canReg, order: "name", ascending: true });
   const regProducts = useTable("reg_products", { enabled: canReg, order: "name", ascending: true });
@@ -74,12 +75,12 @@ export function DataProvider({ me, children }) {
   const comments = useTable("hub_comments", { ascending: true });
   const goals = useTable("hub_goals", { enabled: isOwner });
   const goalItems = useTable("hub_goal_items", { enabled: isOwner, ascending: true });
-  const trademarks = useTable("hub_trademarks", { enabled: isStaff, order: "mark", ascending: true });
-  const iprNotices = useTable("hub_ipr_notifications", { enabled: isStaff, order: "notice_date" });
-  const iprThird = useTable("hub_ipr_third_party", { enabled: isStaff, order: "client", ascending: true, columns: TP_COLS });
-  const iprDocs = useTable("hub_ipr_documents", { enabled: isStaff, columns: DOC_COLS });
-  const iprMatters = useTable("hub_ipr_matters", { enabled: isStaff, order: "due", ascending: true });
-  const iprOptions = useTable("hub_ipr_options", { enabled: isStaff, order: "key", ascending: true });
+  const trademarks = useTable("hub_trademarks", { enabled: canIpr, order: "mark", ascending: true });
+  const iprNotices = useTable("hub_ipr_notifications", { enabled: canIpr, order: "notice_date" });
+  const iprThird = useTable("hub_ipr_third_party", { enabled: canIpr, order: "client", ascending: true, columns: TP_COLS });
+  const iprDocs = useTable("hub_ipr_documents", { enabled: canIpr, columns: DOC_COLS });
+  const iprMatters = useTable("hub_ipr_matters", { enabled: canIpr, order: "due", ascending: true });
+  const iprOptions = useTable("hub_ipr_options", { enabled: canIpr, order: "key", ascending: true });
   const cmpItems = useTable("hub_cmp_items", { order: "due_date", ascending: true });
   const cmpLib = useTable("hub_cmp_library", { order: "sort", ascending: true });
   const cmpFirms = useTable("hub_cmp_firms", { order: "sort", ascending: true });
@@ -91,7 +92,7 @@ export function DataProvider({ me, children }) {
   const cmpDocs = useTable("hub_cmp_docs", { enabled: isStaff, order: "created_at", ascending: true });
   const chkHeads = useTable("hub_chk_heads", { enabled: isStaff, order: "dept", ascending: true });
 
-  const value = { me, isOwner, isStaff, matLists, canQc, qc, canBatch, canBatchEdit, batches, products, canReg, regIngredients, regProducts, canExport, expFirms, expParties, expAgents, expProducts, expPrices, expCountries, expShipments, expLines, profiles, materials, tasks, comments, goals, goalItems, trademarks,
+  const value = { me, isOwner, isStaff, matLists, canQc, qc, canBatch, canBatchEdit, batches, products, canReg, canIpr, regIngredients, regProducts, canExport, expFirms, expParties, expAgents, expProducts, expPrices, expCountries, expShipments, expLines, profiles, materials, tasks, comments, goals, goalItems, trademarks,
     iprNotices, iprThird, iprDocs, iprMatters, iprOptions,
     cmpItems, cmpLib, cmpFirms, cmpAssign, cmpLic, chkPoints, chkAnswers, chkHeads, cmpDocs, notifs };
   return <DataCtx.Provider value={value}>{children}</DataCtx.Provider>;
