@@ -7,6 +7,7 @@ import { fmtD, fmtM, todayISO, stateOf, STATE_LABEL, STATE_COLOR } from "../lib/
 import { normName } from "../lib/export";
 import { packLines, totals, lineAmount, preflight } from "../lib/shipment";
 import Papers from "./ExportPapers";
+import { useSettlements } from "./ExportPayments";
 import { saveAttachment, openFile } from "./ExportAudit";
 
 // Shipments: choose country and party, add products and batches, type the invoice number and exchange rate.
@@ -42,6 +43,7 @@ export default function Shipments() {
   const { expFirms, expParties, expProducts, expPrices, expCountries, expAgents, expShipments, expLines, canBatch, batches } = useData();
   const [open, setOpen] = useState(null); const [papers, setPapers] = useState(null); const [q, setQ] = useState("");
   const batchState = useBatchState(canBatch);
+  const { byShip: pay } = useSettlements();
   const d = useMemo(() => ({ firms: expFirms.rows, parties: expParties.rows.filter((p) => !p.deleted_at), countries: expCountries.rows, agents: expAgents.rows.filter((a) => !a.deleted_at),
     products: expProducts.rows.filter((p) => !p.deleted_at), prices: expPrices.rows, shipments: expShipments.rows.filter((x) => !x.deleted_at), batches: canBatch ? batches.rows.filter((b) => !b.deleted_at) : [] }),
   [expFirms.rows, expParties.rows, expCountries.rows, expAgents.rows, expProducts.rows, expPrices.rows, expShipments.rows, batches.rows, canBatch]);
@@ -57,13 +59,13 @@ export default function Shipments() {
         <button className="btn-primary sm" onClick={() => setOpen({})}>＋ New order</button>
       </div>
       {list.length === 0 ? <Empty>{d.shipments.length ? "No shipment matches." : "Nothing yet. When a party places an order, start with “New order”: you make the proforma invoice first."}</Empty> : (
-        <div className="table-wrap"><table className="tbl qc-tbl"><thead><tr><th>Invoice / proforma</th><th>Date</th><th>Party</th><th>Qty</th><th>Value</th><th>Cartons</th><th>Status</th><th>Check</th><th></th></tr></thead>
+        <div className="table-wrap"><table className="tbl qc-tbl"><thead><tr><th>Invoice / proforma</th><th>Date</th><th>Party</th><th>Qty</th><th>Value</th><th>Cartons</th><th>Status</th><th>Payment</th><th>Check</th><th></th></tr></thead>
           <tbody>{list.map((x) => {
             const ls = (linesOf[x.id] || []); const t = totals(ls); const pk = packLines(ls); const errs = preflight(x, ls, ctxFor(x, ls, d, batchState)).filter((i) => i.level === "error").length;
             return (<tr key={x.id} className="qc-tr" onClick={() => setOpen(x)}>
               <td><span className="tk-firm" style={{ background: FIRM_COLORS[x.firm_id] }}>{x.firm_id}</span><b>{x.status === "proforma" ? (x.proforma_no || "no proforma no.") : (x.invoice_no || "no invoice no.")}</b></td><td>{fmtD(x.status === "proforma" ? x.proforma_date : x.invoice_date) || "—"}</td>
               <td>{d.parties.find((p) => p.id === x.party_id)?.name || "—"} <small className="small-muted">{x.country}</small></td><td>{t.qty || "—"}</td><td>{t.qty ? money(t.amount, x.currency) : "—"}</td><td>{pk.boxes || "—"}</td>
-              <td>{STATUS.find((s) => s[0] === x.status)?.[1] || x.status}</td><td>{errs ? <span style={{ color: "#b91c1c" }}>⚠ {errs}</span> : <span style={{ color: "#16a34a" }}>✓</span>}</td>
+              <td>{STATUS.find((s) => s[0] === x.status)?.[1] || x.status}</td><td>{pay[x.id] ? <b style={{ color: pay[x.id].s.status === "Overdue" ? "#b91c1c" : pay[x.id].s.status === "Settled" ? "#15803d" : "#475467" }}>{pay[x.id].s.status}</b> : <span className="small-muted">—</span>}</td><td>{errs ? <span style={{ color: "#b91c1c" }}>⚠ {errs}</span> : <span style={{ color: "#16a34a" }}>✓</span>}</td>
               <td onClick={(e) => e.stopPropagation()}><button className="btn-ghost sm" onClick={() => setPapers(x)}>📄 Papers</button></td></tr>);
           })}</tbody></table></div>)}
     </>
