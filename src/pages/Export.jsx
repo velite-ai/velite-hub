@@ -6,6 +6,7 @@ import { Modal, Field, Empty, SearchBox, useConfirm } from "../components/ui";
 import { FIRM_COLORS } from "./compliance/common";
 import Shipments from "./ExportShipments";
 import { SentEmails } from "./ExportMail";
+import Payments, { useSettlements } from "./ExportPayments";
 import { FIRM_IDS, readProductSheet, planImport, normName, FIELD_LABEL } from "../lib/export";
 
 // Export: masters that every export document is built from (firms and signatories, buyers / consignees / brand owners, agents,
@@ -22,18 +23,21 @@ const FirmTag = ({ id }) => <span className="tk-firm" style={{ background: FIRM_
 export default function Export() {
   const { expFirms, expParties, expAgents, expProducts, expPrices, expCountries, expShipments, isOwner } = useData();
   const [view, setView] = useState("shipments");
+  const { items: pay } = useSettlements();
+  const overdueN = pay.filter((i) => i.s.status === "Overdue").length;
   const firms = expFirms.rows;
   const parties = useMemo(() => expParties.rows.filter((r) => !r.deleted_at), [expParties.rows]);
   const agents = useMemo(() => expAgents.rows.filter((r) => !r.deleted_at), [expAgents.rows]);
   const products = useMemo(() => expProducts.rows.filter((r) => !r.deleted_at), [expProducts.rows]);
   const countries = expCountries.rows;
-  const tabs = [["shipments", "📦 Shipments"], ["overview", "🏠 Overview"], ["products", `🧴 Products (${products.length})`], ["parties", `🤝 Parties (${parties.length})`], ["firms", "🏢 Our firms"], ["countries", `🌍 Countries (${countries.length})`], ["agents", `🚚 Agents (${agents.length})`], ["mail", "✉️ Sent emails"]];
+  const tabs = [["shipments", "📦 Shipments"], ["payments", `💰 Payments${overdueN ? ` (${overdueN} overdue)` : ""}`], ["overview", "🏠 Overview"], ["products", `🧴 Products (${products.length})`], ["parties", `🤝 Parties (${parties.length})`], ["firms", "🏢 Our firms"], ["countries", `🌍 Countries (${countries.length})`], ["agents", `🚚 Agents (${agents.length})`], ["mail", "✉️ Sent emails"]];
   return (
     <div className="section qcp">
       <div className="mt-hero ex-hero"><div><div className="mt-hero-title">🚢 Export</div>
         <div className="mt-hero-sub">Firms, parties, products and country rules · the base for preparing and checking export documents</div></div></div>
       <div className="tk-views qc-tabs">{tabs.map(([k, l]) => <button key={k} className={view === k ? "on" : ""} onClick={() => setView(k)}>{l}</button>)}</div>
       {view === "shipments" ? <Shipments />
+        : view === "payments" ? <Payments />
         : view === "overview" ? <Overview firms={firms} parties={parties} products={products} prices={expPrices.rows} countries={countries} go={setView} />
         : view === "products" ? <Products products={products} prices={expPrices.rows} parties={parties} reloadAll={() => { expProducts.reload(); expPrices.reload(); }} />
         : view === "parties" ? <Parties rows={parties} countries={countries} reload={expParties.reload} />

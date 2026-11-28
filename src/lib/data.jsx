@@ -71,6 +71,7 @@ export function DataProvider({ me, children }) {
   const expCountries = useTable("exp_countries", { enabled: canExport, order: "country", ascending: true });
   const expShipments = useTable("exp_shipments", { enabled: canExport, order: "invoice_date", ascending: false });
   const expLines = useTable("exp_shipment_lines", { enabled: canExport, order: "position", ascending: true });
+  const expReceipts = useTable("exp_receipts", { enabled: canExport, order: "received_on", ascending: true });
   const tasks = useTable("hub_tasks");
   const comments = useTable("hub_comments", { ascending: true });
   const goals = useTable("hub_goals", { enabled: isOwner });
@@ -92,7 +93,7 @@ export function DataProvider({ me, children }) {
   const cmpDocs = useTable("hub_cmp_docs", { enabled: isStaff, order: "created_at", ascending: true });
   const chkHeads = useTable("hub_chk_heads", { enabled: isStaff, order: "dept", ascending: true });
 
-  const value = { me, isOwner, isStaff, matLists, canQc, qc, canBatch, canBatchEdit, batches, products, canReg, canIpr, regIngredients, regProducts, canExport, expFirms, expParties, expAgents, expProducts, expPrices, expCountries, expShipments, expLines, profiles, materials, tasks, comments, goals, goalItems, trademarks,
+  const value = { me, isOwner, isStaff, matLists, canQc, qc, canBatch, canBatchEdit, batches, products, canReg, canIpr, regIngredients, regProducts, canExport, expFirms, expParties, expAgents, expProducts, expPrices, expCountries, expShipments, expLines, expReceipts, profiles, materials, tasks, comments, goals, goalItems, trademarks,
     iprNotices, iprThird, iprDocs, iprMatters, iprOptions,
     cmpItems, cmpLib, cmpFirms, cmpAssign, cmpLic, chkPoints, chkAnswers, chkHeads, cmpDocs, notifs };
   return <DataCtx.Provider value={value}>{children}</DataCtx.Provider>;
