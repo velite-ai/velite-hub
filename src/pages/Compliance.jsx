@@ -8,6 +8,7 @@ import {
   STATUS, isOpen, tone, dueBadge, personName, regenerate, exportCsv, applicability,
   DEPTS, deptStyle, firmColor, FirmBadge, DeptChip, GO_LIVE, isBacklog, ruleText,
 } from "./compliance/common";
+import { groupItems, sectionsOf, mostUrgent } from "../lib/complianceGroups";
 import ItemModal from "./compliance/ItemModal";
 import Licences from "./compliance/Licences";
 import Library from "./compliance/Library";
@@ -84,6 +85,28 @@ function Row({ i, onOpen, select }) {
       <span className="small-muted cmp-who">{personName(d.profiles, i.owner_id) || ""}</span>
       <Pill tone={st.tone}>{st.label}</Pill>
       {isOpen(i) && <button className="cmp-quick" title="Mark as done" onClick={(e) => { e.stopPropagation(); onOpen({ id: i.id, quick: true }); }}>✓ Done</button>}
+    </div>
+  );
+}
+
+// One line per compliance: the firms are small tags (green done, red late, amber soon, grey open); click a tag to open that firm's item.
+function GroupRow({ g, onOpen, libs, compact }) {
+  const [more, setMore] = useState(false);
+  const lib = libs[g.code] || {};
+  const first = g.items.find(isOpen) || g.items[0];
+  const b = dueBadge(first);
+  return (
+    <div className={`cmp-grp ${g.tone}`}>
+      <div className="cmp-grp-h" onClick={() => setMore(!more)}>
+        <span className="cmp-icon" style={{ background: deptStyle(lib.dept).c + "18" }} title={lib.dept}>{deptStyle(lib.dept).icon}</span>
+        <span className={`due ${b.cls} cmp-due`}>{g.open ? b.text : fmtDate(g.due)}</span>
+        <span className="cmp-title"><b>{g.title}</b> <span className="small-muted">· {g.period}</span></span>
+        <span className="cmp-chips">{g.items.map((i, k) => (
+          <button key={i.id} className={`cmp-chip ${g.states[k]}`} title={`${i.firm_id}: ${STATUS[i.status].label}`} onClick={(e) => { e.stopPropagation(); onOpen({ id: i.id }); }}>{i.firm_id}{g.states[k] === "done" ? " ✓" : ""}</button>))}</span>
+        <span className="small-muted cmp-count">{g.done}/{g.items.length} done</span>
+        {!compact && <span className="cmp-chev">{more ? "▾" : "▸"}</span>}
+      </div>
+      {more && !compact && g.items.map((i) => <Row key={i.id} i={i} onOpen={onOpen} />)}
     </div>
   );
 }
@@ -233,6 +256,8 @@ function DueList({ filter, setFilter, onOpen }) {
   const d = useData();
   const set = (k, v) => setFilter({ ...filter, [k]: v });
   const [sel, setSel] = useState(new Set());
+  const [mode, setMode] = useState("grouped");          // grouped = one line per compliance, all firms together
+  const [folds, setFolds] = useState({});               // month key -> opened (true) / closed (false); unset = default
   const libBy = useMemo(() => Object.fromEntries(d.cmpLib.rows.map((l) => [l.code, l])), [d.cmpLib.rows]);
   const q = filter.q.trim().toLowerCase();
   const rows = d.cmpItems.rows.filter((i) => {
@@ -248,6 +273,7 @@ function DueList({ filter, setFilter, onOpen }) {
       case "overdue_all": if (!isOpen(i) || n >= 0) return false; break;
       case "7": if (!isOpen(i) || n > 7) return false; break;
       case "30": if (!isOpen(i) || n > 30) return false; break;
+      case "noowner": if (!isOpen(i) || i.owner_id || isBacklog(i) || n > 30) return false; break;
       case "filed": if (i.status !== "filed") return false; break;
       case "done": if (!["filed", "verified", "na"].includes(i.status)) return false; break;
       default: break;
@@ -258,6 +284,21 @@ function DueList({ filter, setFilter, onOpen }) {
   const groups = {};
   for (const i of rows) { const k = i.due_date.slice(0, 7); (groups[k] = groups[k] || []).push(i); }
   const selectable = d.isOwner && filter.show === "prelive";
+  const grouped = mode === "grouped" && !selectable;
+  const today = todayISO();
+  const gopts = { today, goLive: GO_LIVE };
+  const sections = useMemo(() => (grouped ? sectionsOf(groupItems(rows, libBy, gopts), today) : []), [grouped, rows, libBy, today]);
+  const allItems = d.cmpItems.rows.filter((i) => !i.deleted_at);
+  const openAll = allItems.filter(isOpen);
+  const days = (i) => daysUntil(i.due_date);
+  const stats = [
+    ["overdue", "🔴", "Overdue", openAll.filter((i) => days(i) < 0 && !isBacklog(i)).length, "red"],
+    ["7", "🟠", "Due in 7 days", openAll.filter((i) => days(i) >= 0 && days(i) <= 7).length, "amber"],
+    ["filed", "🟢", "To check", allItems.filter((i) => i.status === "filed").length, "green"],
+    ["noowner", "👤", "Nobody responsible", openAll.filter((i) => !i.owner_id && !isBacklog(i) && days(i) <= 30).length, "grey"],
+  ];
+  const urgent = useMemo(() => mostUrgent(groupItems(allItems, libBy, gopts), 5), [allItems, libBy, today]);
+  const openSection = (sec) => (q ? true : folds[sec.key] ?? sec.open);
   const select = selectable ? { has: (id) => sel.has(id), toggle: (id) => { const s = new Set(sel); s.has(id) ? s.delete(id) : s.add(id); setSel(s); } } : null;
 
   const markDone = async () => {
@@ -271,10 +312,19 @@ function DueList({ filter, setFilter, onOpen }) {
 
   return (
     <div className="ipanel">
+      {!selectable && (
+        <div className="cmp-today">
+          <div className="cmp-today-cards">{stats.map(([k, ic, l, n, c]) => (
+            <button key={k} className={`cmp-today-card ${c} ${filter.show === k ? "on" : ""}`} onClick={() => set("show", k)}><b>{n}</b><span>{ic} {l}</span></button>))}</div>
+          {urgent.length > 0 && (
+            <div className="cmp-urgent"><div className="cmp-urgent-h">Look at these first</div>
+              {urgent.map((g) => <GroupRow key={g.key} g={g} onOpen={onOpen} libs={libBy} compact />)}</div>)}
+        </div>)}
       <div className="cmp-quickfilters">
-        {[["open", "All open"], ["overdue", "🔴 Overdue"], ["7", "🟠 Next 7 days"], ["30", "🔵 Next 30 days"], ["filed", "🟢 To check"], ["done", "✅ Done"], ...(d.isOwner ? [["prelive", "🧹 Catch-up"]] : [])].map(([k, l]) => (
+        {[["open", "All open"], ["overdue", "🔴 Overdue"], ["7", "🟠 Next 7 days"], ["30", "🔵 Next 30 days"], ["noowner", "👤 Nobody responsible"], ["filed", "🟢 To check"], ["done", "✅ Done"], ...(d.isOwner ? [["prelive", "🧹 Catch-up"]] : [])].map(([k, l]) => (
           <button key={k} className={`filter-btn ${filter.show === k ? "active" : ""}`} onClick={() => set("show", k)}>{l}</button>))}
         <button className={`filter-btn ${filter.mine ? "active" : ""}`} onClick={() => set("mine", !filter.mine)}>👤 Only mine</button>
+        {!selectable && <span className="cmp-viewtoggle"><button className={`filter-btn ${grouped ? "active" : ""}`} onClick={() => setMode("grouped")}>By compliance</button><button className={`filter-btn ${!grouped ? "active" : ""}`} onClick={() => setMode("all")}>All items</button></span>}
       </div>
       <div className="filter-bar" style={{ margin: "8px 0 10px" }}>
         <select className="inp inp-filter" value={filter.firm} onChange={(e) => set("firm", e.target.value)}>
@@ -294,9 +344,16 @@ function DueList({ filter, setFilter, onOpen }) {
           </span>
         </div>
       )}
-      <div className="small-muted" style={{ marginBottom: 8 }}>{rows.length} item{rows.length === 1 ? "" : "s"}</div>
+      <div className="small-muted" style={{ marginBottom: 8 }}>{grouped ? `${sections.reduce((n, x) => n + x.count, 0)} compliances (${rows.length} firm items)` : `${rows.length} item${rows.length === 1 ? "" : "s"}`}</div>
       {rows.length === 0 && <Empty>Nothing here. 🎉</Empty>}
-      {Object.entries(groups).map(([k, list]) => (
+      {grouped && sections.map((sec) => (
+        <div key={sec.key} className="cmp-month">
+          <div className={`cmp-month-h cmp-fold ${sec.backlog ? "old" : ""}`} onClick={() => setFolds({ ...folds, [sec.key]: !openSection(sec) })}>
+            <span className="cmp-fold-t">{openSection(sec) ? "▾" : "▸"} {sec.backlog ? "Old items from before 8 Nov (catch-up)" : new Date(sec.month + "-01").toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" })}</span>
+            <span>{sec.late > 0 && <em className="cmp-late">{sec.late} late</em>}{sec.count}</span></div>
+          {openSection(sec) && sec.groups.map((g) => <GroupRow key={g.key} g={g} onOpen={onOpen} libs={libBy} />)}
+        </div>))}
+      {!grouped && Object.entries(groups).map(([k, list]) => (
         <div key={k} className="cmp-month">
           <div className="cmp-month-h">{new Date(k + "-01").toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" })} <span>{list.length}</span></div>
           {list.map((i) => <Row key={i.id} i={i} onOpen={onOpen} select={select} />)}
