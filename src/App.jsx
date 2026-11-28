@@ -127,10 +127,10 @@ function useHashTab(allowed) {
 
 function Shell({ onSignOut, reloadMe }) {
   const { me, isOwner, isStaff, matLists, canQc, canBatch, canReg, canIpr, canExport, tasks, profiles, cmpItems } = useData();
+  const hasMyCmp = cmpItems.rows.some((i) => !i.deleted_at && (i.owner_id === me.id || i.checker_id === me.id)); // employees see Compliance only when items are assigned to them
   const tabs = TABS.filter((t) => (!t.owner || isOwner) && (!t.staff || isStaff || hasMyCmp) && (!t.iprTab || canIpr) && (!t.mat || matLists.length > 0) && (!t.qcTab || canQc) && (!t.batchTab || canBatch) && (!t.regTab || canReg) && (!t.expTab || canExport));
   const [tab, go] = useHashTab(tabs.map((t) => t.k));
   const [acct, setAcct] = useState(false);
-  const hasMyCmp = cmpItems.rows.some((i) => !i.deleted_at && (i.owner_id === me.id || i.checker_id === me.id)); // employees see Compliance only when items are assigned to them
   const alerts = myAlerts(tasks, me) + cmpAlerts(cmpItems, me);
   const pendingUsers = isOwner ? profiles.rows.filter((p) => p.status === "pending").length : 0;
 
