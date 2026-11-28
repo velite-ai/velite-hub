@@ -24,7 +24,8 @@ const BLANK = { firm: "all", dept: "all", show: "open", mine: false, q: "" };
 
 export default function Compliance() {
   const d = useData();
-  const [view, setView] = useState("dash");
+  const staff = d.isStaff;                          // employees only get their own items (Due list and Calendar)
+  const [view, setView] = useState(d.isStaff ? "dash" : "due");
   const [filter, setFilter] = useState(BLANK);
   const [open, setOpen] = useState(null);
   const [adding, setAdding] = useState(false);
@@ -43,15 +44,15 @@ export default function Compliance() {
           <div className="cmp-hero-firms">{d.cmpFirms.rows.map((f) => <span key={f.id} className="cmp-hero-firm" style={{ borderColor: firmColor(f.id) }}><FirmBadge id={f.id} /> {f.name}</span>)}</div>
         </div>
         <div className="cmp-hero-actions">
-          <button className="cmp-btn-add" onClick={() => setAdding(true)}>＋ Add an item</button>
+          {staff && <button className="cmp-btn-add" onClick={() => setAdding(true)}>＋ Add an item</button>}
           {d.isOwner && <button className="cmp-btn-light" onClick={async () => { await regenerate(); d.cmpItems.reload(); }}>↻ Refresh due dates</button>}
         </div>
       </div>
-      <CompSearch onOpenItem={setOpen}
+      {staff && <CompSearch onOpenItem={setOpen}
         onOpenLicence={(id) => { setOpenLic({ id, n: Date.now() }); setView("lic"); }}
-        onOpenChecklist={(sel) => { setChkStart({ ...sel, n: Date.now() }); setView("chk"); }} />
+        onOpenChecklist={(sel) => { setChkStart({ ...sel, n: Date.now() }); setView("chk"); }} />}
       <div className="cmp-tabs">
-        {VIEWS.filter((v) => !v[2] || d.isOwner).map(([k, l]) => <button key={k} className={view === k ? "on" : ""} onClick={() => setView(k)}>{l}</button>)}
+        {VIEWS.filter((v) => (!v[2] || d.isOwner) && (staff || v[0] === "due" || v[0] === "cal")).map(([k, l]) => <button key={k} className={view === k ? "on" : ""} onClick={() => setView(k)}>{l}</button>)}
       </div>
       {loading ? <div className="loading">Loading…</div> : <>
         {view === "dash" && <Dashboard goDue={goDue} onOpen={setOpen} goView={setView} />}

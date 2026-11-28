@@ -155,7 +155,7 @@ export default function MyDay({ go }) {
             return (
               <div className="section">
                 <div className="section-head"><div className="section-title">🛡️ Compliance — next 15 days</div>
-                  {isStaff && <button className="link-btn strong" onClick={() => go("compliance")}>Open →</button>}</div>
+                  {(isStaff || list.length > 0 || toCheck.length > 0 || cmpItems.rows.some((i) => !i.deleted_at && (i.owner_id === me.id || i.checker_id === me.id))) && <button className="link-btn strong" onClick={() => go("compliance")}>Open →</button>}</div>
                 <div className="side-list">
                   <div className="small-muted" style={{ marginBottom: 6 }}>{list.length} due{late ? <span className="due-over"> · {late} overdue</span> : ""}{toCheck.length ? ` · ${toCheck.length} filed, waiting for your check` : ""}</div>
                   {list.length === 0 && <div className="small-muted">Nothing due in the next 15 days.</div>}
