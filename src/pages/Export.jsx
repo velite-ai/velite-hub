@@ -7,6 +7,8 @@ import { FIRM_COLORS } from "./compliance/common";
 import Shipments from "./ExportShipments";
 import { SentEmails } from "./ExportMail";
 import Payments, { useSettlements } from "./ExportPayments";
+import { partyHistory } from "../lib/partyHistory";
+import { fmtD, todayISO } from "../lib/qc";
 import { FIRM_IDS, readProductSheet, planImport, normName, FIELD_LABEL } from "../lib/export";
 
 // Export: masters that every export document is built from (firms and signatories, buyers / consignees / brand owners, agents,
@@ -18,6 +20,15 @@ const lines = (s) => String(s || "").split("\n").map((x) => x.trim()).filter(Boo
 const FIRM_NAME = { VH: "Velite Healthcare", VI: "Velite India" };
 const ROLES = [["buyer", "Buyer"], ["consignee", "Consignee"], ["notify", "Notify party"], ["brand_owner", "Brand owner"]];
 const KINDS = [["transporter", "Transporter"], ["cha", "Customs agent (CHA)"], ["forwarder", "Freight forwarder"], ["other", "Other"]];
+const cash = (n, c) => `${c === "USD" ? "$" : "₹"}${Number(n || 0).toLocaleString(c === "USD" ? "en-US" : "en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function usePartyHistory() {
+  const { expShipments, expLines, expReceipts } = useData();
+  return useMemo(() => {
+    const lines = {}; expLines.rows.forEach((l) => (lines[l.shipment_id] ||= []).push(l));
+    const recs = {}; expReceipts.rows.forEach((r) => (recs[r.shipment_id] ||= []).push(r));
+    return partyHistory(expShipments.rows, lines, recs, todayISO());
+  }, [expShipments.rows, expLines.rows, expReceipts.rows]);
+}
 const FirmTag = ({ id }) => <span className="tk-firm" style={{ background: FIRM_COLORS[id] }}>{id}</span>;
 
 export default function Export() {
@@ -243,6 +254,7 @@ function DataSheet({ products, onClose, onDone }) {
 // ── parties ──────────────────────────────────────────────────────────────
 function Parties({ rows, countries, reload }) {
   const [q, setQ] = useState(""); const [edit, setEdit] = useState(null);
+  const hist = usePartyHistory();
   const list = useMemo(() => { const s = q.trim().toLowerCase(); return rows.filter((r) => !s || [r.name, r.country, r.address, Object.values(r.ids || {}).join(" ")].join(" ").toLowerCase().includes(s)); }, [rows, q]);
   const byCountry = useMemo(() => { const m = {}; list.forEach((r) => (m[r.country] ||= []).push(r)); return Object.entries(m).sort((a, b) => a[0].localeCompare(b[0])); }, [list]);
   return (
@@ -253,13 +265,35 @@ function Parties({ rows, countries, reload }) {
       </div>
       {byCountry.length === 0 ? <Empty>No parties yet.</Empty> : byCountry.map(([c, items]) => (
         <div key={c} className="rg-group"><h3>{c} <span className="section-count">{items.length}</span></h3>
-          <div className="table-wrap"><table className="tbl qc-tbl"><thead><tr><th>Party</th><th>Roles</th><th>IDs</th><th>Usual firm</th><th>Currency</th></tr></thead>
+          <div className="table-wrap"><table className="tbl qc-tbl"><thead><tr><th>Party</th><th>Roles</th><th>IDs</th><th>Usual firm</th><th>Orders</th><th>Billed</th><th>To receive</th><th>Last order</th></tr></thead>
             <tbody>{items.map((p) => { const gaps = partyGaps(p, countries); return (
               <tr key={p.id} className="qc-tr" onClick={() => setEdit(p)}><td><b>{p.name}</b>{gaps.length > 0 && <small style={{ color: "#b45309" }}> · missing {gaps.join(", ")}</small>}</td>
                 <td>{(p.roles || []).map((r) => ROLES.find((x) => x[0] === r)?.[1] || r).join(", ")}</td>
-                <td>{Object.entries(p.ids || {}).map(([k, v]) => `${k} ${v}`).join(" · ") || "—"}</td><td>{p.usual_firm ? <FirmTag id={p.usual_firm} /> : "—"}</td><td>{p.currency}</td></tr>); })}</tbody></table></div></div>))}
+                <td>{Object.entries(p.ids || {}).map(([k, v]) => `${k} ${v}`).join(" · ") || "—"}</td><td>{p.usual_firm ? <FirmTag id={p.usual_firm} /> : "—"}</td>
+                {(() => { const h = hist[p.id]; const cs = Object.entries(h?.byCurrency || {}); return (<>
+                  <td>{h?.orders.length || "—"}</td>
+                  <td>{cs.length ? cs.map(([c, v]) => <div key={c}>{cash(v.billed, c)}</div>) : "—"}</td>
+                  <td>{cs.length ? cs.map(([c, v]) => <div key={c} style={{ color: v.balance > 0 ? "#b45309" : "#15803d" }}>{cash(v.balance, c)}</div>) : "—"}</td>
+                  <td>{h?.lastDate ? fmtD(h.lastDate) : "—"}</td></>); })()}</tr>); })}</tbody></table></div></div>))}
       {edit && <PartyForm row={edit.id ? edit : null} countries={countries} onClose={() => setEdit(null)} onSaved={reload} />}
     </>
+  );
+}
+
+function PartyHistory({ partyId }) {
+  const hist = usePartyHistory(); const h = hist[partyId];
+  if (!h) return <div className="ipanel"><div className="ipanel-head"><div><h3>Order history</h3></div></div><div className="small-muted">No orders recorded for this party yet.</div></div>;
+  const prods = Object.entries(h.products).sort((a, b) => b[1] - a[1]);
+  return (
+    <div className="ipanel"><div className="ipanel-head"><div><h3>Order history</h3><p>{h.orders.length} order{h.orders.length === 1 ? "" : "s"}{h.firstDate ? ` · first invoice ${fmtD(h.firstDate)}, last ${fmtD(h.lastDate)}` : ""}</p></div></div>
+      {Object.entries(h.byCurrency).map(([c, v]) => <div key={c} className="small-muted" style={{ marginBottom: 6 }}><b>{c}</b>: {v.orders} invoice{v.orders === 1 ? "" : "s"} · billed {cash(v.billed, c)} · received {cash(v.received, c)} · still to receive <b>{cash(v.balance, c)}</b></div>)}
+      {prods.length > 0 && <div style={{ marginBottom: 8 }}><b>Products supplied ({prods.length})</b><div className="small-muted">{prods.map(([n, q]) => `${n} (${q.toLocaleString("en-IN")})`).join(" · ")}</div></div>}
+      <div className="table-wrap"><table className="tbl qc-tbl"><thead><tr><th>Invoice</th><th>Date</th><th>Products</th><th>Qty</th><th>Value</th><th>Received</th><th>Status</th></tr></thead>
+        <tbody>{h.orders.map((o) => (
+          <tr key={o.ship.id}><td><b>{o.ship.invoice_no || o.ship.proforma_no || "proforma"}</b></td><td>{fmtD(o.date) || "—"}</td>
+            <td><small>{o.products.slice(0, 3).join(", ")}{o.products.length > 3 ? ` +${o.products.length - 3} more` : ""}</small></td><td>{o.qty.toLocaleString("en-IN")}</td>
+            <td>{cash(o.billed, o.ship.currency)}</td><td>{o.status ? cash(o.received, o.ship.currency) : "—"}</td><td>{o.status || (o.ship.status === "proforma" ? "Proforma" : "In preparation")}</td></tr>))}</tbody></table></div>
+    </div>
   );
 }
 
@@ -326,6 +360,7 @@ function PartyForm({ row, countries, onClose, onSaved }) {
         </div>
       </div>
       <Field label="Notes"><textarea className="form-inp" rows={2} value={f.notes} onChange={set("notes")} /></Field>
+      {row && <PartyHistory partyId={row.id} />}
       {dialog}
     </Modal>
   );
