@@ -92,6 +92,7 @@ function Row({ i, onOpen, select }) {
 // One line per compliance: the firms are small tags (green done, red late, amber soon, grey open); click a tag to open that firm's item.
 function GroupRow({ g, onOpen, libs, compact }) {
   const [more, setMore] = useState(false);
+  const [bulk, setBulk] = useState(false);
   const lib = libs[g.code] || {};
   const first = g.items.find(isOpen) || g.items[0];
   const b = dueBadge(first);
@@ -104,10 +105,51 @@ function GroupRow({ g, onOpen, libs, compact }) {
         <span className="cmp-chips">{g.items.map((i, k) => (
           <button key={i.id} className={`cmp-chip ${g.states[k]}`} title={`${i.firm_id}: ${STATUS[i.status].label}`} onClick={(e) => { e.stopPropagation(); onOpen({ id: i.id }); }}>{i.firm_id}{g.states[k] === "done" ? " ✓" : ""}</button>))}</span>
         <span className="small-muted cmp-count">{g.done}/{g.items.length} done</span>
+        {g.open > 0 && <button className="cmp-quick" title={g.open > 1 ? "Mark this done for several firms at once" : "Mark as done"} onClick={(e) => { e.stopPropagation(); setBulk(true); }}>{g.open > 1 ? `✓ Done for all ${g.open}` : "✓ Done"}</button>}
         {!compact && <span className="cmp-chev">{more ? "▾" : "▸"}</span>}
       </div>
+      {bulk && <BulkDone g={g} title={lib.title || g.code} onClose={() => setBulk(false)} />}
       {more && !compact && g.items.map((i) => <Row key={i.id} i={i} onOpen={onOpen} />)}
     </div>
+  );
+}
+
+// Mark one compliance done for several firms with one acknowledgement / proof. Items with a licence cycle are left out (they need their next due date).
+function BulkDone({ g, title, onClose }) {
+  const { cmpItems, cmpFirms } = useData();
+  const todo = g.items.filter(isOpen);
+  const skipped = todo.filter((i) => i.licence_id);
+  const doable = todo.filter((i) => !i.licence_id);
+  const [pick, setPick] = useState(() => new Set(doable.map((i) => i.id)));
+  const [f, setF] = useState({ filed_on: todayISO(), ref_no: "", proof_link: "", notes: "" });
+  const [busy, setBusy] = useState(false);
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const save = async () => {
+    if (!pick.size) return toast("Tick at least one firm.", "err");
+    if (!f.ref_no.trim() && !f.proof_link.trim()) return toast("Add the acknowledgement / reference number or a proof link.", "err");
+    setBusy(true);
+    const r = await run(supabase.from("hub_cmp_items").update({ status: "filed", filed_on: f.filed_on || null, ref_no: f.ref_no.trim() || null, proof_link: f.proof_link.trim() || null, notes: f.notes.trim() || null }).in("id", [...pick]), `Marked done for ${pick.size} firm${pick.size === 1 ? "" : "s"}`);
+    setBusy(false);
+    if (r.ok) { cmpItems.reload(); onClose(); }
+  };
+  const firmName = (id) => cmpFirms.rows.find((x) => x.id === id)?.name || id;
+  return (
+    <Modal title={`Done: ${title}`} onClose={onClose} actions={<><button className="btn-ghost" onClick={onClose}>Cancel</button><button className="btn-primary" disabled={busy} onClick={save}>{busy ? "Saving…" : `Mark done (${pick.size})`}</button></>}>
+      <div className="small-muted" style={{ marginBottom: 8 }}>{g.period} · due {fmtDate(g.due)}. It goes to "Filed – to check" for each firm ticked, the same as marking each one done.</div>
+      <Field label="Firms">
+        {doable.map((i) => (
+          <label key={i.id} style={{ display: "flex", gap: 8, alignItems: "center", padding: "3px 0" }}>
+            <input type="checkbox" checked={pick.has(i.id)} onChange={() => { const n = new Set(pick); n.has(i.id) ? n.delete(i.id) : n.add(i.id); setPick(n); }} />
+            <FirmBadge id={i.firm_id} /> {firmName(i.firm_id)}</label>))}
+        {skipped.length > 0 && <div className="form-hint">Not included: {skipped.map((i) => i.firm_id).join(", ")} (licence renewals: open each one to set the next due date).</div>}
+      </Field>
+      <div className="cmp-form">
+        <Field label="Done on"><input className="inp" type="date" value={f.filed_on} onChange={set("filed_on")} /></Field>
+        <Field label="Acknowledgement / ARN / challan no."><input className="inp" value={f.ref_no} onChange={set("ref_no")} /></Field>
+        <Field label="Proof link (Google Drive etc.)"><input className="inp" placeholder="https://drive.google.com/…" value={f.proof_link} onChange={set("proof_link")} /></Field>
+      </div>
+      <Field label="Notes"><textarea className="inp" rows={2} value={f.notes} onChange={set("notes")} /></Field>
+    </Modal>
   );
 }
 
